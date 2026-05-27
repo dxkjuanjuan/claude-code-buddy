@@ -1,0 +1,48 @@
+# Local agent/session state
+.claude/settings.local.json
+AGENTS.md
+CLAUDE.md
+logs/*.jsonl
+logs/*.log
+logs/*.pid
+examples/logs/
+firmware/**/logs/
+# L0a-2 bench fixture: bufo character (upstream-cp'd, replaced by Clawd assets in L2)
+firmware/clawstick/data/characters/bufo/
+
+# Node / test caches
+node_modules/
+npm-debug.log*
+dist/
+
+# Python experiments
+experiments/
+experiments/**/.venv/
+__pycache__/
+*.pyc
+tmp/
+
+# Local planning docs; keep only public runtime docs tracked
+docs/*
+!docs/contracts/
+!docs/contracts/**
+!docs/standalone-daemon-windows.md
+
+# PlatformIO / firmware build artifacts
+upstream/**/.pio/
+firmware/**/.pio/
+.pio/
+
+# Local-only reference mirrors
+upstream/claude-desktop-buddy/
+
+# Local hardware profiles and validation artifacts
+examples/*9ea6*
+tools/probe_ble_disconnect.js
+firmware/**/REPORT*.md
+firmware/clawstick/test/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp

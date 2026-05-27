@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "name": "clawd",
+  "colors": {
+    "body": "#FF9C00",
+    "bg": "#101010",
+    "text": "#FFFFFF",
+    "textDim": "#7B7D7B",
+    "ink": "#000000"
+  },
+  "states": [
+    {
+      "id": "idle",
+      "file": "idle-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 48,
+      "loop": true,
+      "size_bytes": 26036
+    },
+    {
+      "id": "working",
+      "file": "working-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 17153
+    },
+    {
+      "id": "thinking",
+      "file": "thinking-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 35602
+    },
+    {
+      "id": "dizzy",
+      "file": "dizzy-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 33528
+    },
+    {
+      "id": "error",
+      "file": "error-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 26583
+    }
+  ]
+}

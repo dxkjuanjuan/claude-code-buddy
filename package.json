@@ -1,0 +1,53 @@
+{
+  "name": "claudebuddy",
+  "version": "0.0.0",
+  "description": "Standalone Hardware Buddy bridge runtime for ClaudeBuddy and Clawstick devices.",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "claudebuddy",
+    "clawstick",
+    "hardware-buddy",
+    "ble",
+    "nordic-uart",
+    "windows",
+    "daemon",
+    "tray"
+  ],
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./internal/*": "./src/*.js"
+  },
+  "bin": {
+    "claudebuddy": "./bin/claudebuddy.js",
+    "claudebuddy-quick-command-consumer": "./bin/claudebuddy-quick-command-consumer.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "scripts/",
+    "tools/backends/__init__.py",
+    "tools/backends/bleak_backend.py",
+    "tools/hardware_buddy_bridge.py",
+    "tools/hardware_buddy_common.py",
+    "tools/requirements-sidecar.txt",
+    "examples/claudebuddy.fake.config.json",
+    "examples/claudebuddy.http-ble.example.config.json",
+    "examples/claudebuddy.http-control.config.json",
+    "examples/claudebuddy.json-file.config.json",
+    "examples/claudebuddy.quick-commands.config.json",
+    "examples/claudebuddy.stdin-jsonl.config.json",
+    "examples/state.sample.json",
+    "docs/contracts/",
+    "docs/standalone-daemon-windows.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/claudebuddy.js",
+    "test": "node --test test/*.test.js"
+  }
+}

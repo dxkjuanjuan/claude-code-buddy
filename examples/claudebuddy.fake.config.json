@@ -1,0 +1,10 @@
+{
+  "source": "static",
+  "transport": "fake",
+  "title": "Standalone Fake",
+  "state": "working",
+  "permissionReplies": false,
+  "keepaliveMs": 0,
+  "logLevel": "info",
+  "logFile": "logs/claudebuddy.fake.log"
+}

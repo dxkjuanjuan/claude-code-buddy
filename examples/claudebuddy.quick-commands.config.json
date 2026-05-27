@@ -1,0 +1,19 @@
+{
+  "source": "static",
+  "transport": "fake",
+  "title": "Quick Commands Smoke",
+  "state": "working",
+  "permissionReplies": false,
+  "quickCommands": true,
+  "quickCommandBufferSize": 100,
+  "quickCommandDedupeMs": 30000,
+  "quickCommandConsumer": "jsonl",
+  "quickCommandConsumerFile": "../logs/quick-commands-consumed.jsonl",
+  "keepaliveMs": 10000,
+  "controlServer": true,
+  "controlHost": "127.0.0.1",
+  "controlPort": 27217,
+  "controlToken": "",
+  "logLevel": "info",
+  "logFile": "../logs/claudebuddy.quick-commands.log"
+}

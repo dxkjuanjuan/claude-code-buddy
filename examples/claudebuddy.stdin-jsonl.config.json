@@ -1,0 +1,9 @@
+{
+  "source": "stdin-jsonl",
+  "sourceMaxBytes": 65536,
+  "transport": "fake",
+  "permissionReplies": false,
+  "keepaliveMs": 10000,
+  "logLevel": "info",
+  "logFile": "logs/claudebuddy.stdin-jsonl.log"
+}

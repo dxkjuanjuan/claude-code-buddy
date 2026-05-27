@@ -1,0 +1,12 @@
+{
+  "source": "static",
+  "transport": "fake",
+  "permissionReplies": false,
+  "keepaliveMs": 10000,
+  "controlServer": true,
+  "controlHost": "127.0.0.1",
+  "controlPort": 27217,
+  "replyBufferSize": 100,
+  "logLevel": "info",
+  "logFile": "logs/claudebuddy.http-control.log"
+}

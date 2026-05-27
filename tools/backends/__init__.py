@@ -1,0 +1,1 @@
+"""Hardware Buddy sidecar backends."""

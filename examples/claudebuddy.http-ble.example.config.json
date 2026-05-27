@@ -1,0 +1,21 @@
+{
+  "source": "static",
+  "transport": "sidecar",
+  "backend": "bleak",
+  "namePrefix": "Claude",
+  "controlServer": true,
+  "controlHost": "127.0.0.1",
+  "controlPort": 27217,
+  "permissionReplies": false,
+  "replyBufferSize": 100,
+  "keepaliveMs": 10000,
+  "pollStatusMs": 1000,
+  "retryInitialMs": 1000,
+  "retryMaxMs": 15000,
+  "retryBackoffFactor": 2,
+  "retryMaxAttempts": 0,
+  "shutdownTimeoutMs": 1500,
+  "logLevel": "info",
+  "jsonLogs": true,
+  "logFile": "../logs/claudebuddy.http-ble.example.jsonl"
+}

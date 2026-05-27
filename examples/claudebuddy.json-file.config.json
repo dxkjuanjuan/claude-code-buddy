@@ -1,0 +1,10 @@
+{
+  "source": "json-file",
+  "sourceFile": "state.sample.json",
+  "sourcePollMs": 1000,
+  "transport": "fake",
+  "permissionReplies": false,
+  "keepaliveMs": 10000,
+  "logLevel": "info",
+  "logFile": "logs/claudebuddy.json-file.log"
+}

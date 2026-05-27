@@ -1,0 +1,45 @@
+#pragma once
+
+#ifndef CLAWSTICK_PRODUCT_NAME
+#define CLAWSTICK_PRODUCT_NAME "Clawstick"
+#endif
+
+#ifndef CLAWSTICK_DEVICE_PREFIX
+#if defined(CLAWSTICK_COMPAT_CLAUDE_NAME)
+#define CLAWSTICK_DEVICE_PREFIX "Claude"
+#else
+#define CLAWSTICK_DEVICE_PREFIX CLAWSTICK_PRODUCT_NAME
+#endif
+#endif
+
+#ifndef CLAWSTICK_COMPANION_NAME
+#define CLAWSTICK_COMPANION_NAME "ClaudeBuddy"
+#endif
+
+#ifndef CLAWSTICK_BOOT_SUBTITLE
+#define CLAWSTICK_BOOT_SUBTITLE "agent companion"
+#endif
+
+#ifndef CLAWSTICK_DEFAULT_PET_NAME
+#define CLAWSTICK_DEFAULT_PET_NAME "Clawstick"
+#endif
+
+#ifndef CLAWSTICK_SOURCE_OWNER
+#define CLAWSTICK_SOURCE_OWNER "ClaudeBuddy"
+#endif
+
+#ifndef CLAWSTICK_SOURCE_REPO
+#define CLAWSTICK_SOURCE_REPO "firmware/clawstick"
+#endif
+
+#ifndef CLAWSTICK_APPROVAL_TITLE
+#define CLAWSTICK_APPROVAL_TITLE "agent asks"
+#endif
+
+#ifndef CLAWSTICK_ALLOW_LABEL
+#define CLAWSTICK_ALLOW_LABEL "A: allow"
+#endif
+
+#ifndef CLAWSTICK_DENY_LABEL
+#define CLAWSTICK_DENY_LABEL "B: deny"
+#endif

@@ -1,0 +1,13 @@
+{
+  "sessions": [
+    {
+      "id": "standalone",
+      "title": "Standalone JSON task",
+      "state": "working",
+      "updatedAt": 1710000000000,
+      "lastEvent": "json-file source"
+    }
+  ],
+  "permissions": [],
+  "doNotDisturb": false
+}
