@@ -1,17 +1,27 @@
 #!/usr/bin/env node
-// Clawstick Hook — bridges Claude Code events to the clawstick bridge runtime
+// Clawstick Hook — bridges Claude Code events to clawd-on-desk
 // Usage: node clawstick-hook.js <event_name>
-// Reads stdin JSON from Claude Code, translates to clawstick session format,
-// and POSTs to the bridge HTTP server on port 27217.
+// Reads stdin JSON from Claude Code, translates to clawd-on-desk's
+// flat /state format, and POSTs to port 23333.
+//
+// clawd-on-desk loads the clawstick bridge (controller + sidecar)
+// internally, so posting to 23333 automatically pushes state to M5
+// over BLE — no separate clawstick bridge process needed.
+//
+// Flat format matches clawd-on-desk's handleStatePost expectations:
+//   state, session_id, event, agent_id, tool_name, session_title, cwd
 
 const http = require("http");
 
 const BRIDGE_HOST = "127.0.0.1";
-const BRIDGE_PORT = 27217;
+const BRIDGE_PORT = 23333;
 const BRIDGE_PATH = "/state";
-const BRIDGE_TIMEOUT_MS = 200;
+const BRIDGE_TIMEOUT_MS = 500;
 
-const EVENT_TO_SESSION_STATE = {
+// Same mapping as clawd-on-desk hooks/clawd-hook.js EVENT_TO_STATE
+// PermissionRequest is NOT here — it's handled by clawd-on-desk's HTTP hook
+// (POST /permission) which is a blocking bidirectional hook for approval.
+const EVENT_TO_STATE = {
   SessionStart: "idle",
   SessionEnd: "sleeping",
   UserPromptSubmit: "thinking",
@@ -27,19 +37,6 @@ const EVENT_TO_SESSION_STATE = {
   Notification: "notification",
   Elicitation: "notification",
   WorktreeCreate: "carrying",
-  PermissionRequest: "attention",
-};
-
-const TOOL_STATE_OVERRIDES = {
-  Task: { state: "juggling", label: "delegating" },
-  Agent: { state: "juggling", label: "delegating" },
-  Read: { state: "reading", label: "reading" },
-  Grep: { state: "reading", label: "searching" },
-  Glob: { state: "reading", label: "scanning" },
-  Bash: { state: "working", label: "executing" },
-  Edit: { state: "working", label: "editing" },
-  Write: { state: "working", label: "writing" },
-  NotebookEdit: { state: "working", label: "editing" },
 };
 
 function readStdinJson() {
@@ -54,61 +51,39 @@ function readStdinJson() {
   });
 }
 
-function buildSessionFromEvent(event, payload) {
+function buildFlatBody(event, payload) {
   const sessionId = payload.session_id || "default";
-  let state = EVENT_TO_SESSION_STATE[event] || "idle";
+  let state = EVENT_TO_STATE[event] || "idle";
 
+  // Tool-specific state overrides for richer expressions
   const toolName = payload.tool_name || "";
-  if (event === "PreToolUse" && toolName === "Task") {
+  if (toolName === "Task" || toolName === "Agent") {
     state = "juggling";
-  } else if (toolName && TOOL_STATE_OVERRIDES[toolName] && state === "working") {
-    state = TOOL_STATE_OVERRIDES[toolName].state;
   }
 
-  let displayTitle = payload.session_title || "";
-  if (!displayTitle && event === "UserPromptSubmit" && payload.prompt) {
+  // Build flat body matching clawd-on-desk's expected format
+  const body = {
+    state,
+    session_id: sessionId,
+    event,
+    agent_id: "claude-code",
+  };
+
+  if (toolName) body.tool_name = toolName;
+  if (payload.cwd) body.cwd = payload.cwd;
+
+  // Session title from payload or extracted from prompt
+  let title = payload.session_title || "";
+  if (!title && event === "UserPromptSubmit" && payload.prompt) {
     const firstLine = payload.prompt.split(/\r?\n/).find((l) => l.trim());
     if (firstLine) {
-      displayTitle = firstLine.trim().slice(0, 60);
-      if (firstLine.trim().length > 60) displayTitle += "…";
+      title = firstLine.trim().slice(0, 40);
+      if (firstLine.trim().length > 40) title += "…";
     }
   }
+  if (title) body.session_title = title;
 
-  const rawEvent = toolName || event;
-  const labelKey = toolName && TOOL_STATE_OVERRIDES[toolName]
-    ? TOOL_STATE_OVERRIDES[toolName].label : "";
-
-  const session = {
-    id: sessionId,
-    state,
-    displayTitle: displayTitle || sessionId,
-    sessionTitle: displayTitle || sessionId,
-    updatedAt: Date.now(),
-    agentId: "claude-code",
-    headless: false,
-    hiddenFromHud: false,
-    lastEvent: { rawEvent },
-  };
-  if (labelKey) session.lastEvent.labelKey = labelKey;
-  if (payload.cwd) session.cwd = payload.cwd;
-
-  return session;
-}
-
-function buildPermissionFromEvent(event, payload) {
-  if (event !== "PermissionRequest") return [];
-  const sessionId = payload.session_id || "default";
-  const toolName = payload.tool_name || "";
-  if (!toolName) return [];
-
-  const entry = {
-    sessionId,
-    agentId: "claude-code",
-    toolName,
-    toolInput: payload.tool_input || payload.input || {},
-    createdAt: Date.now(),
-  };
-  return [entry];
+  return body;
 }
 
 function postToBridge(body) {
@@ -137,16 +112,10 @@ function postToBridge(body) {
 
 function main() {
   const event = process.argv[2];
-  if (!EVENT_TO_SESSION_STATE[event]) process.exit(0);
+  if (!EVENT_TO_STATE[event]) process.exit(0);
 
   readStdinJson().then((payload) => {
-    const session = buildSessionFromEvent(event, payload || {});
-    const permissions = buildPermissionFromEvent(event, payload || {});
-    const body = {
-      sessions: [session],
-      permissions,
-      doNotDisturb: false,
-    };
+    const body = buildFlatBody(event, payload || {});
     postToBridge(body);
   }).catch(() => process.exit(0));
 }
