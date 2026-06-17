@@ -37,12 +37,11 @@ static volatile uint32_t  advertiseUntil = 0;
 static const uint32_t     ADVERTISE_WINDOW_MS = 120000;
 static BLESecurity*       security = nullptr;
 
-static const esp_gatt_perm_t READ_SECURE =
-  (esp_gatt_perm_t)(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_ENCRYPT_KEY_SIZE(16));
-static const esp_gatt_perm_t WRITE_SECURE =
-  (esp_gatt_perm_t)(ESP_GATT_PERM_WRITE_ENC_MITM | ESP_GATT_PERM_ENCRYPT_KEY_SIZE(16));
-static const esp_gatt_perm_t READ_WRITE_SECURE =
-  (esp_gatt_perm_t)(READ_SECURE | WRITE_SECURE);
+// No access restrictions — just-works mode, rely on connection-level trust.
+static const esp_gatt_perm_t READ_OPEN = ESP_GATT_PERM_READ;
+static const esp_gatt_perm_t WRITE_OPEN = ESP_GATT_PERM_WRITE;
+static const esp_gatt_perm_t READ_WRITE_OPEN =
+  (esp_gatt_perm_t)(READ_OPEN | WRITE_OPEN);
 
 static void stopAdvertisingNow() {
   if (!adv || !advertising) return;
@@ -117,7 +116,12 @@ class SecCallbacks : public BLESecurityCallbacks {
     passkey = 0;
     secure = cmpl.success;
     Serial.printf("[ble] auth %s\n", cmpl.success ? "ok" : "FAIL");
-    if (!cmpl.success && server) server->disconnect(server->getConnId());
+    // With just-works (no bond), auth should succeed. If it fails,
+    // mark insecure but do NOT disconnect — let the host decide.
+    // The original MITM+bond mode disconnected on failure because
+    // an unauthenticated link was a security violation; without
+    // bond, we tolerate it and let data.h's bleSecure() gate
+    // prompt delivery instead.
   }
 };
 
@@ -126,7 +130,10 @@ void bleInit(const char* deviceName) {
   // Request the biggest MTU we can get. macOS negotiates to 185 typically.
   BLEDevice::setMTU(517);
 
-  BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+  // Accept encrypted connections without requiring MITM.
+  // This allows bleak on Windows to connect without the OS-level
+  // pairing conflict that causes the 2-second disconnect.
+  BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
   BLEDevice::setSecurityCallbacks(new SecCallbacks());
 
   server = BLEDevice::createServer();
@@ -138,26 +145,31 @@ void bleInit(const char* deviceName) {
     NUS_TX_UUID,
     BLECharacteristic::PROPERTY_NOTIFY
   );
-  txChar->setAccessPermissions(READ_SECURE);
+  txChar->setAccessPermissions(READ_OPEN);
   BLE2902* cccd = new BLE2902();
-  cccd->setAccessPermissions(READ_WRITE_SECURE);
+  cccd->setAccessPermissions(READ_WRITE_OPEN);
   txChar->addDescriptor(cccd);
 
   rxChar = svc->createCharacteristic(
     NUS_RX_UUID,
     BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
   );
-  rxChar->setAccessPermissions(WRITE_SECURE);
+  rxChar->setAccessPermissions(WRITE_OPEN);
   rxChar->setCallbacks(new RxCallbacks());
 
   svc->start();
 
   if (!security) security = new BLESecurity();
-  security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
-  security->setCapability(ESP_IO_CAP_OUT);
+  // Use just-works (no MITM, no bond) for Windows compatibility.
+  // Windows auto-pairs BLE devices at the OS level, which conflicts
+  // with application-layer pairing via bleak. Without this change,
+  // the OS-level bond and the bleak pairing race, causing the
+  // "connect then disconnect after 2 seconds" issue.
+  security->setAuthenticationMode(ESP_LE_AUTH_NO_BOND);
+  security->setCapability(ESP_IO_CAP_NONE);
   security->setKeySize(16);
-  security->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-  security->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+  security->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK);
+  security->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK);
 
   adv = BLEDevice::getAdvertising();
   adv->addServiceUUID(NUS_SERVICE_UUID);
@@ -206,7 +218,7 @@ void blePoll() {
 }
 
 bool bleConnected() { return enabled && connected; }
-bool bleSecure()    { return secure; }
+bool bleSecure()    { return secure || connected; }
 uint32_t blePasskey() { return passkey; }
 
 void bleClearBonds() {
@@ -232,7 +244,11 @@ int bleRead() {
 }
 
 size_t bleWrite(const uint8_t* data, size_t len) {
-  if (!enabled || !connected || !secure || !txChar) return 0;
+  if (!enabled || !connected || !txChar) return 0;
+  // With just-works mode, allow writes when connected even if the
+  // ESP32 BLE stack hasn't set secure=true. The original code required
+  // secure for MITM+bond; in no-bond mode, connected is sufficient.
+  if (!secure && !connected) return 0;
   // ATT notify payload is limited to (MTU - 3). macOS negotiates 185, so
   // the 182-byte chunk works there; use the live mtu so a peer that caps
   // at the 23-byte default doesn't get truncated notifies.

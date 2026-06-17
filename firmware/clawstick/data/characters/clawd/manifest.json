@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "name": "clawd",
   "colors": {
     "body": "#FF9C00",
@@ -16,7 +16,7 @@
       "h": 120,
       "frames": 48,
       "loop": true,
-      "size_bytes": 26036
+      "size_bytes": 85162
     },
     {
       "id": "working",
@@ -25,7 +25,7 @@
       "h": 120,
       "frames": 16,
       "loop": true,
-      "size_bytes": 17153
+      "size_bytes": 35321
     },
     {
       "id": "thinking",
@@ -34,16 +34,25 @@
       "h": 120,
       "frames": 16,
       "loop": true,
-      "size_bytes": 35602
+      "size_bytes": 22723
     },
     {
-      "id": "dizzy",
-      "file": "dizzy-120.gif",
+      "id": "juggling",
+      "file": "juggling-120.gif",
       "w": 120,
       "h": 120,
       "frames": 16,
       "loop": true,
-      "size_bytes": 33528
+      "size_bytes": 24822
+    },
+    {
+      "id": "sweeping",
+      "file": "sweeping-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 25038
     },
     {
       "id": "error",
@@ -52,7 +61,97 @@
       "h": 120,
       "frames": 16,
       "loop": true,
-      "size_bytes": 26583
+      "size_bytes": 24073
+    },
+    {
+      "id": "attention",
+      "file": "attention-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 15628
+    },
+    {
+      "id": "notification",
+      "file": "notification-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 19742
+    },
+    {
+      "id": "carrying",
+      "file": "carrying-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 24611
+    },
+    {
+      "id": "sleeping",
+      "file": "sleeping-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 19903
+    },
+    {
+      "id": "dizzy",
+      "file": "dizzy-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 33592
+    },
+    {
+      "id": "building",
+      "file": "building-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 32758
+    },
+    {
+      "id": "reading",
+      "file": "reading-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 20662
+    },
+    {
+      "id": "bubble",
+      "file": "bubble-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 15910
+    },
+    {
+      "id": "debugger",
+      "file": "debugger-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 24699
+    },
+    {
+      "id": "annoyed",
+      "file": "annoyed-120.gif",
+      "w": 120,
+      "h": 120,
+      "frames": 16,
+      "loop": true,
+      "size_bytes": 23447
     }
   ]
 }

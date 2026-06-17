@@ -1,0 +1,3 @@
+stdin: {"session_id":"ps-stdin-test","prompt":"test from powershell","tool_name":"Read"}
+
+argv: ["D:\\node.exe","PreToolUse"]

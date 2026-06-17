@@ -34,14 +34,6 @@ static uint32_t _lastBtByteMs = 0;   // hasClient() lies; track actual BT traffi
 // collapsing the 1.5s hold to a single frame. main.cpp owns the flag:
 // sets true when responseAt is taken, false when the hold ends.
 static bool     _suppressPromptClear = false;
-// When a prompt arrives, record the time so we can hold it visible for
-// PROMPT_HOLD_MS even if subsequent keepalive snapshots lack the prompt
-// field. Claude Code hooks fire rapidly: PermissionRequest → approval
-// → PostToolUse can arrive in <1s, and the keepalive in between has no
-// prompt field. Without this hold the approval overlay flashes for a
-// single frame and disappears before the user can press A/B.
-static uint32_t _promptReceivedMs = 0;
-static const uint32_t PROMPT_HOLD_MS = 30000; // 30s hold for M5 approval UI
 
 // L4-3 #2: see _suppressPromptClear comment. main.cpp toggles this around
 // the post-response hold window; while true, _applyJson() preserves the
@@ -108,17 +100,12 @@ static void _applyJson(const char* line, TamaState* out) {
     strncpy(out->promptId,   pid ? pid : "", sizeof(out->promptId)-1);   out->promptId[sizeof(out->promptId)-1]=0;
     strncpy(out->promptTool, pt  ? pt  : "", sizeof(out->promptTool)-1); out->promptTool[sizeof(out->promptTool)-1]=0;
     strncpy(out->promptHint, ph  ? ph  : "", sizeof(out->promptHint)-1); out->promptHint[sizeof(out->promptHint)-1]=0;
-    _promptReceivedMs = millis();
   } else if (!_suppressPromptClear) {
     // No prompt field on this snapshot (or transport lost the gate).
-    // Hold the prompt for PROMPT_HOLD_MS so the M5 approval UI stays
-    // visible while the user decides. After the hold, or if main.cpp
-    // is suppressing clears, preserve the existing prompt.
-    uint32_t elapsed = _promptReceivedMs ? (millis() - _promptReceivedMs) : PROMPT_HOLD_MS + 1;
-    if (out->promptId[0] == 0 || elapsed > PROMPT_HOLD_MS) {
-      out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
-      _promptReceivedMs = 0;
-    }
+    // Clear unless main.cpp is holding the post-response "sent..." UI
+    // (plan §3.6 / L4-3 #2). The transport-edge clear in main.cpp's
+    // loop handles "lost secure" independently and is NOT suppressed.
+    out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
   }
   _lastLiveMs = millis();
 }
@@ -164,6 +151,5 @@ inline void dataPoll(TamaState* out) {
     out->sessionsTotal=0; out->sessionsRunning=0; out->sessionsWaiting=0;
     out->recentlyCompleted=false;
     out->personaState[0]=0; // clear on disconnect so fresh connect starts idle
-    _promptReceivedMs = 0;
   }
 }

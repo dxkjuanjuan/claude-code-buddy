@@ -1,0 +1,231 @@
+{
+  "_comment": "Claude Code settings.json 模板 — 将此内容合并到 ~/.claude/settings.json",
+  "_usage": "不要直接替换！用 python merge-settings.py 或手动合并 hooks 部分",
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" SessionStart",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" SessionEnd",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" UserPromptSubmit",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PreToolUse",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PostToolUse",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PostToolUseFailure",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" Stop",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" StopFailure",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" SubagentStart",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" SubagentStop",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PreCompact",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PostCompact",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" Notification",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Elicitation": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" Elicitation",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" WorktreeCreate",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"D:\\node.exe\" \"C:/Users/21244/Desktop/m5stack/clawstick/hooks/clawstick-hook.js\" PermissionRequest",
+            "shell": "powershell",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
