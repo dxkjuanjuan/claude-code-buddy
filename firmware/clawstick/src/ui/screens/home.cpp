@@ -3,6 +3,7 @@
 #include "../../ble_bridge.h"
 #include "../../clawstick_config.h"
 #include "../../stats.h"
+#include "../../lang.h"
 #include <M5StickCPlus.h>
 
 // stats.h's L2-era file-static storage was consolidated into a single TU
@@ -41,11 +42,11 @@ const int Y_CAPTION_START = 226;
 // visual aligned. P_ERROR (7) is L4-1: transport degraded mid-session.
 const char* personaLabel(uint8_t p) {
   switch (p) {
-    case 2: return "working";    // P_BUSY
-    case 3: return "thinking";   // P_ATTENTION
-    case 5: return "dizzy";      // P_DIZZY
-    case 7: return "error";      // P_ERROR (transport degraded)
-    default: return "idle";      // P_SLEEP / P_IDLE / P_CELEBRATE / P_HEART
+    case 2: return L(S_HOME_WORKING);    // P_BUSY
+    case 3: return L(S_HOME_THINKING);   // P_ATTENTION
+    case 5: return L(S_HOME_DIZZY);      // P_DIZZY
+    case 7: return L(S_HOME_ERROR);      // P_ERROR (transport degraded)
+    default: return L(S_HOME_IDLE);      // P_SLEEP / P_IDLE / P_CELEBRATE / P_HEART
   }
 }
 
@@ -152,9 +153,9 @@ void drawNameStatusSessions(const TamaState& tama, uint8_t persona,
     spr.setTextColor(COL_TEXT_DIM, COL_BG);
     char ss[20];
     uint8_t total = tama.sessionsTotal;
-    if (total == 0)      snprintf(ss, sizeof(ss), "no sessions");
-    else if (total == 1) snprintf(ss, sizeof(ss), "1 session");
-    else                 snprintf(ss, sizeof(ss), "%u sessions", total);
+    if (total == 0)      snprintf(ss, sizeof(ss), "%s", L(S_HOME_NO_SESSIONS));
+    else if (total == 1) snprintf(ss, sizeof(ss), "1 %s", L(S_HOME_SESSIONS));
+    else                 snprintf(ss, sizeof(ss), "%u %s", total, L(S_HOME_SESSIONS));
     spr.setTextDatum(TC_DATUM);
     spr.drawString(ss, 135 / 2, y);
     spr.setTextDatum(TL_DATUM);
@@ -165,8 +166,8 @@ void drawCaption() {
   spr.setTextSize(1);
   spr.setTextColor(COL_TEXT_DIM, COL_BG);
   spr.setCursor(4, Y_CAPTION_START + 4);
-  spr.print("A >");
-  const char* hint = "hold A menu";
+  spr.print(L(S_HOME_A_NEXT));
+  const char* hint = L(S_HOME_HOLD_A);
   int hw = (int)strlen(hint) * 6;
   spr.setCursor(135 - hw - 4, Y_CAPTION_START + 4);
   spr.print(hint);

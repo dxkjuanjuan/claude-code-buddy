@@ -31,6 +31,7 @@ struct Settings {
   bool bt;
   bool led;
   uint8_t clockRot;            // legacy fork field, kept so older NVS data still reads cleanly
+  uint8_t lang;                // 0=English, 1=Chinese (see lang.h LangId)
 };
 
 // Persistence
@@ -78,6 +79,7 @@ const Stats& stats();
 
 // Settings
 Settings& settings();
+Settings settingsGet();         // copy for use without mutation risk
 void settingsLoad();
 void settingsSave();
 

@@ -1,5 +1,6 @@
 #include "approval.h"
 #include "../../clawstick_config.h"
+#include "../../lang.h"
 #include <M5StickCPlus.h>
 #include <string.h>
 
@@ -65,7 +66,7 @@ void drawTitleRow(uint32_t waited) {
   spr.setTextSize(1);
   spr.setTextColor(COL_TEXT_DIM, COL_BG);
   spr.setCursor(PAD_X, Y_TITLE);
-  spr.print(CLAWSTICK_APPROVAL_TITLE);
+  spr.print(L(S_APPROVAL_AGENT_ASKS));
 
   // Countdown switches to red once user has had >= 10 s to decide.
   // Plan §3.6: "size 2 倒计时" — but at 135 px wide size 2 already
@@ -110,7 +111,7 @@ void drawMarqueeLine(const char* text, int y, uint16_t color) {
 }
 
 void drawToolName(const char* tool) {
-  drawSectionLabel("TOOL", Y_TOOL_LABEL);
+  drawSectionLabel(L(S_APPROVAL_TOOL), Y_TOOL_LABEL);
   if (!tool || !tool[0]) return;
 
   spr.setTextSize(1);
@@ -145,7 +146,7 @@ void printHintLine(const char* hint, int start, int len, int y, bool ellipsis) {
 }
 
 void drawHintRow(const char* hint) {
-  drawSectionLabel("DETAIL", Y_HINT_LABEL);
+  drawSectionLabel(L(S_APPROVAL_DETAIL), Y_HINT_LABEL);
   if (!hint || !hint[0]) return;
 
   spr.setTextSize(1);
@@ -189,11 +190,11 @@ void drawFooterAllowDeny() {
   drawTick(PAD_X, Y_FOOTER + 1, COL_SUCCESS);
   spr.setTextColor(COL_SUCCESS, COL_BG);
   spr.setCursor(PAD_X + 10, Y_FOOTER + 2);
-  spr.print(CLAWSTICK_ALLOW_LABEL);
+  spr.print(L(S_APPROVAL_A_ALLOW));
 
   // ✗ B deny (red) on the right.
   spr.setTextColor(COL_HOT, COL_BG);
-  const char* deny = CLAWSTICK_DENY_LABEL;
+  const char* deny = L(S_APPROVAL_B_DENY);
   int dw = (int)strlen(deny) * 6;
   int denyX = W - PAD_X - dw;
   spr.setCursor(denyX, Y_FOOTER + 2);
@@ -205,7 +206,7 @@ void drawSent() {
   spr.setTextSize(2);
   spr.setTextColor(COL_TEXT_DIM, COL_BG);
   spr.setTextDatum(MC_DATUM);
-  spr.drawString("sent...", W / 2, H / 2);
+  spr.drawString(L(S_APPROVAL_SENT), W / 2, H / 2);
   spr.setTextDatum(TL_DATUM);
 }
 

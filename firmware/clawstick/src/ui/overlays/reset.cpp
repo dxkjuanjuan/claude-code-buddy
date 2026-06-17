@@ -1,4 +1,5 @@
 #include "reset.h"
+#include "../../lang.h"
 #include <M5StickCPlus.h>
 #include <string.h>
 
@@ -25,33 +26,28 @@ const int ROW_H = 24;
 const int Y_FOOTER_DIV = 210;
 const int Y_FOOTER = 220;
 
-const char* ITEMS[] = {
-  "delete char",
-  "factory reset",
-  "back",
-};
-static_assert(sizeof(ITEMS) / sizeof(ITEMS[0]) == kItemCount, "reset count mismatch");
-
 void drawShell() {
   spr.fillSprite(COL_BG);
   spr.setTextSize(1);
   spr.setTextColor(COL_LABEL, COL_BG);
   spr.setCursor(PAD_X, Y_TITLE);
-  spr.print("RESET");
+  spr.print(L(S_RESET_TITLE));
   spr.setTextColor(COL_DIM, COL_BG);
   spr.setCursor(PAD_X, 30);
-  spr.print("press B twice");
+  spr.print(L(S_RESET_PRESS_B));
   spr.drawFastHLine(PAD_X, Y_DIV, CONTENT_W, COL_DIVIDER);
 
   spr.drawFastHLine(PAD_X, Y_FOOTER_DIV, CONTENT_W, COL_DIVIDER);
   spr.setTextColor(COL_DIM, COL_BG);
   spr.setCursor(PAD_X, Y_FOOTER);
-  spr.print("A next");
-  spr.setCursor(W - PAD_X - 9 * 6, Y_FOOTER);
-  spr.print("B confirm");
+  spr.print(L(S_RESET_A_NEXT));
+  const char* right = L(S_RESET_B_CONFIRM);
+  int rw = (int)strlen(right) * 6;
+  spr.setCursor(W - PAD_X - rw, Y_FOOTER);
+  spr.print(right);
 }
 
-void drawRow(uint8_t idx, bool selected, bool armed) {
+void drawRow(uint8_t idx, const char* label, bool selected, bool armed) {
   int y = Y_LIST + idx * ROW_H;
   uint16_t bg = selected ? COL_ROW : COL_BG;
   if (selected) spr.fillRect(PAD_X - 2, y - 3, CONTENT_W + 4, 14, COL_ROW);
@@ -59,17 +55,20 @@ void drawRow(uint8_t idx, bool selected, bool armed) {
   spr.setTextColor(armed ? COL_HOT : (selected ? COL_TEXT : COL_DIM), bg);
   spr.setCursor(PAD_X, y);
   spr.print(selected ? "> " : "  ");
-  spr.print(armed ? "really?" : ITEMS[idx]);
+  spr.print(armed ? L(S_RESET_REALLY) : label);
 }
 
 }  // namespace
 
 void render(uint8_t selected, uint8_t armedIndex, uint32_t armedUntilMs) {
   drawShell();
+  const char* labels[] = {
+    L(S_RESET_DELETE_CHAR), L(S_RESET_FACTORY), L(S_RESET_BACK),
+  };
   uint32_t now = millis();
   for (uint8_t i = 0; i < 3; ++i) {
     bool armed = (i == armedIndex) && (int32_t)(now - armedUntilMs) < 0;
-    drawRow(i, selected == i, armed);
+    drawRow(i, labels[i], selected == i, armed);
   }
 }
 

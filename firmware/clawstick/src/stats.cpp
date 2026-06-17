@@ -394,6 +394,7 @@ const Stats& stats() { return g_stats; }
 // ---------------------------------------------------------------------------
 
 Settings& settings() { return g_settings; }
+Settings settingsGet() { return g_settings; }
 
 void settingsLoad() {
   g_prefs.begin("buddy", true);
@@ -402,6 +403,8 @@ void settingsLoad() {
   g_settings.led      = g_prefs.getBool("s_led", true);
   g_settings.clockRot = g_prefs.getUChar("s_crot", 0);
   if (g_settings.clockRot > 2) g_settings.clockRot = 0;
+  g_settings.lang     = g_prefs.getUChar("s_lang", 1);  // default Chinese
+  if (g_settings.lang >= 2) g_settings.lang = 1;
   g_prefs.end();
 }
 
@@ -411,6 +414,7 @@ void settingsSave() {
   g_prefs.putBool("s_bt",  g_settings.bt);
   g_prefs.putBool("s_led", g_settings.led);
   g_prefs.putUChar("s_crot", g_settings.clockRot);
+  g_prefs.putUChar("s_lang", g_settings.lang);
   g_prefs.end();
 }
 
