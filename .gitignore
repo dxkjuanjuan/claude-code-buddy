@@ -27,6 +27,7 @@ docs/*
 !docs/contracts/
 !docs/contracts/**
 !docs/standalone-daemon-windows.md
+!docs/project-summary.md
 
 # PlatformIO / firmware build artifacts
 upstream/**/.pio/
