@@ -1,8 +1,8 @@
-# Clawstick — Claude Code 的硬件伙伴 / Hardware Buddy for Claude Code
+# Claude Code Bully — 基于 clawd-on-desk 与 M5StickC Plus 的 Clawstick / Hardware Buddy for Claude Code
 
-Clawstick 是一个基于 M5StickC Plus 的硬件伴侣，通过 BLE 连接到电脑，实时显示 Claude Code 的 16 种 clawd 表情，并支持在 M5 上审批权限请求。
+Claude Code Bully 是一个基于 M5StickC Plus 开发板的硬件伴侣，通过 clawd-on-desk 软件与 BLE 连接到电脑，实时显示 Claude Code 的 16 种 clawd 表情，并支持在 M5 上审批权限请求。
 
-Clawstick is an M5StickC Plus-based hardware companion that connects to your PC via BLE, displays 16 clawd expressions from Claude Code in real time, and supports permission approval on the M5 device.
+Claude Code Bully is an M5StickC Plus-based hardware companion that connects to your PC via clawd-on-desk and BLE, displays 16 clawd expressions from Claude Code in real time, and supports permission approval on the M5 device.
 
 ## 架构 / Architecture
 
