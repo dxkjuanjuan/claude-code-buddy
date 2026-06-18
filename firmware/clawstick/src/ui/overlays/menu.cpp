@@ -1,6 +1,5 @@
 #include "menu.h"
 #include "../../clawstick_config.h"
-#include "../../lang.h"
 #include <M5StickCPlus.h>
 #include <string.h>
 
@@ -29,12 +28,13 @@ const int Y_FOOTER_DIV = 210;
 const int Y_FOOTER = 220;
 
 const char* MENU_ITEMS[] = {
-  "S_MENU_SETTINGS",
-  "S_MENU_SLEEP",
-  "S_MENU_ABOUT",
-  "S_MENU_POWER_OFF",
-  "S_MENU_CLOSE",
+  "settings",
+  "sleep now",
+  "about",
+  "power off",
+  "close",
 };
+static_assert(sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]) == kItemCount, "menu count mismatch");
 
 void drawShell(const char* title, const char* left, const char* right) {
   spr.fillSprite(COL_BG);
@@ -76,13 +76,10 @@ void drawInfoLine(const char* label, const char* value, int y, uint16_t color = 
 }  // namespace
 
 void renderMenu(uint8_t selected, bool powerArmed) {
-  drawShell(L(S_MENU_TITLE), L(S_MENU_A_NEXT), L(S_MENU_B_SELECT));
-  const char* labels[] = {
-    L(S_MENU_SETTINGS), L(S_MENU_SLEEP), L(S_MENU_ABOUT), L(S_MENU_POWER_OFF), L(S_MENU_CLOSE),
-  };
+  drawShell("MENU", "A next", "B select");
   for (uint8_t i = 0; i < kItemCount; ++i) {
     drawRow(Y_LIST + i * ROW_H,
-            (i == 3 && powerArmed) ? L(S_MENU_REALLY) : labels[i],
+            (i == 3 && powerArmed) ? "really?" : MENU_ITEMS[i],
             i == selected,
             i == 3);
   }
@@ -92,20 +89,20 @@ void renderAbout(const char* deviceName,
                  const char* owner,
                  const char* petname,
                  bool secureLink) {
-  drawShell(L(S_MENU_ABOUT_TITLE), L(S_MENU_A_BACK), L(S_MENU_B_BACK));
-  drawInfoLine(L(S_MENU_PRODUCT), CLAWSTICK_PRODUCT_NAME, 42);
-  drawInfoLine(L(S_MENU_DEVICE), deviceName, 66, secureLink ? COL_SUCCESS : COL_TEXT);
-  drawInfoLine(L(S_MENU_OWNER), owner, 90);
-  drawInfoLine(L(S_MENU_PET), petname, 114);
+  drawShell("ABOUT", "A back", "B back");
+  drawInfoLine("product", CLAWSTICK_PRODUCT_NAME, 42);
+  drawInfoLine("device", deviceName, 66, secureLink ? COL_SUCCESS : COL_TEXT);
+  drawInfoLine("owner", owner, 90);
+  drawInfoLine("pet", petname, 114);
 
   spr.setTextSize(1);
   spr.setTextColor(COL_DIM, COL_BG);
   spr.setCursor(PAD_X, 148);
-  spr.print(L(S_MENU_HELP_A));
+  spr.print("A: next / allow");
   spr.setCursor(PAD_X, 160);
-  spr.print(L(S_MENU_HELP_B));
+  spr.print("B: select / deny");
   spr.setCursor(PAD_X, 172);
-  spr.print(L(S_MENU_HELP_HOLD));
+  spr.print("hold A: menu/back");
 }
 
 }  // namespace ui_menu

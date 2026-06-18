@@ -3,7 +3,7 @@
 
 namespace ui_settings {
 
-static constexpr uint8_t kItemCount = 7;  // bright, sound, bt, led, lang, reset, back
+static constexpr uint8_t kItemCount = 6;
 
 void render(uint8_t selected,
             uint8_t brightness,

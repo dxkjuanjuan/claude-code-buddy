@@ -3,7 +3,6 @@
 #include "../../ble_bridge.h"
 #include "../../clawstick_config.h"
 #include "../../stats.h"
-#include "../../lang.h"
 #include <M5StickCPlus.h>
 
 extern TFT_eSprite spr;
@@ -61,10 +60,10 @@ void drawLinkStateRow(int y) {
   bool conn = bleConnected();
   const char* word;
   uint16_t col;
-  if (sec)        { word = L(S_LINK_LINKED);     col = COL_SUCCESS; }
-  else if (conn)  { word = L(S_LINK_LINKING);    col = COL_ACCENT;  }
-  else if (bleAdvertising()) { word = L(S_LINK_STANDALONE); col = COL_TEXT_DIM; }
-  else            { word = L(S_LINK_OFF);        col = COL_TEXT_DIM; }
+  if (sec)        { word = "linked";     col = COL_SUCCESS; }
+  else if (conn)  { word = "linking";    col = COL_ACCENT;  }
+  else if (bleAdvertising()) { word = "standalone"; col = COL_TEXT_DIM; }
+  else            { word = "off";        col = COL_TEXT_DIM; }
 
   spr.setTextSize(2);
   int textW = (int)strlen(word) * 12;
@@ -96,9 +95,9 @@ void drawPeerRow(int y) {
 void drawPowerRow(int y, bool onUsb, bool charging) {
   const char* msg;
   uint16_t col;
-  if (charging)   { msg = L(S_LINK_CHARGING); col = COL_ACCENT;  }
-  else if (onUsb) { msg = L(S_LINK_ON_USB);   col = COL_SUCCESS; }
-  else            { msg = L(S_LINK_BATTERY);  col = COL_TEXT_DIM; }
+  if (charging)   { msg = "charging"; col = COL_ACCENT;  }
+  else if (onUsb) { msg = "on USB";   col = COL_SUCCESS; }
+  else            { msg = "battery";  col = COL_TEXT_DIM; }
 
   spr.setTextSize(2);
   spr.setTextColor(col, COL_BG);
@@ -112,8 +111,8 @@ void drawCaption() {
   spr.setTextSize(1);
   spr.setTextColor(COL_TEXT_DIM, COL_BG);
   spr.setCursor(4, 230);
-  spr.print(L(S_LINK_A_NEXT));
-  const char* hint = L(S_LINK_B_RECONN);
+  spr.print("A >");
+  const char* hint = "B reconn";
   int hw = (int)strlen(hint) * 6;
   spr.setCursor(SCREEN_W - hw - 4, 230);
   spr.print(hint);

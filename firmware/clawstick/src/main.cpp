@@ -4,7 +4,6 @@
 #include "clawstick_config.h"
 #include "ble_bridge.h"
 #include "data.h"
-#include "lang.h"
 
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
 
@@ -130,9 +129,8 @@ static void applySetting(uint8_t idx) {
       bleSetEnabled(s.bt);
       break;
     case 3: s.led = !s.led; break;
-    case 4: s.lang = (s.lang + 1) % 2; break;  // toggle EN/ZH
-    case 5: resetOpen = true; resetSel = 0; resetConfirmIdx = 0xFF; return;
-    case 6: settingsOpen = false; menuOpen = true; return;
+    case 4: resetOpen = true; resetSel = 0; resetConfirmIdx = 0xFF; return;
+    case 5: settingsOpen = false; menuOpen = true; return;
   }
   settingsSave();
 }
@@ -317,8 +315,8 @@ void drawPasskey() {
   spr.fillSprite(p.bg);
   spr.setTextSize(1);
   spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(8, 56);  spr.print(L(S_MAIN_BT_PAIRING));
-  spr.setCursor(8, 184); spr.print(L(S_MAIN_ENTER_ON_DESKTOP));
+  spr.setCursor(8, 56);  spr.print("BLUETOOTH PAIRING");
+  spr.setCursor(8, 184); spr.print("enter on desktop:");
   spr.setTextSize(3);
   spr.setTextColor(p.text, p.bg);
   char b[8]; snprintf(b, sizeof(b), "%06lu", (unsigned long)blePasskey());
@@ -677,7 +675,7 @@ void loop() {
     spr.setTextSize(1);
     uint32_t done = xferProgress(), total = xferTotal();
     spr.setCursor(8, 90);
-    spr.print(L(S_MAIN_INSTALLING));
+    spr.print("installing");
     spr.setCursor(8, 102);
     spr.printf("%luK / %luK", done/1024, total/1024);
     int barW = W - 16;
