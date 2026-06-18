@@ -16,6 +16,8 @@ struct TamaState {
   // at the very first character of the leaf method; plan §3.6 mandates 32 B.
   char     promptTool[32];
   char     promptHint[44];
+  char     promptChoices[4][16]; // up to 4 choices, each up to 15 chars
+  uint8_t  promptChoiceCount;    // 0 = no choices (legacy allow/deny)
   char     personaState[20]; // named state from bridge: "idle","working","thinking","juggling","sweeping","error","attention","notification","carrying","sleeping"
 };
 
@@ -108,6 +110,19 @@ static void _applyJson(const char* line, TamaState* out) {
     strncpy(out->promptId,   pid ? pid : "", sizeof(out->promptId)-1);   out->promptId[sizeof(out->promptId)-1]=0;
     strncpy(out->promptTool, pt  ? pt  : "", sizeof(out->promptTool)-1); out->promptTool[sizeof(out->promptTool)-1]=0;
     strncpy(out->promptHint, ph  ? ph  : "", sizeof(out->promptHint)-1); out->promptHint[sizeof(out->promptHint)-1]=0;
+    // Parse choices array (e.g. ["Yes", "Yes, always", "No"])
+    out->promptChoiceCount = 0;
+    JsonArray ch = pr["choices"];
+    if (!ch.isNull()) {
+      for (uint8_t i = 0; i < 4 && i < ch.size(); i++) {
+        const char* c = ch[i];
+        if (c && c[0]) {
+          strncpy(out->promptChoices[i], c, sizeof(out->promptChoices[i])-1);
+          out->promptChoices[i][sizeof(out->promptChoices[i])-1] = 0;
+          out->promptChoiceCount = i + 1;
+        }
+      }
+    }
     _promptReceivedMs = millis();
   } else if (!_suppressPromptClear) {
     // No prompt field on this snapshot (or transport lost the gate).
@@ -117,6 +132,7 @@ static void _applyJson(const char* line, TamaState* out) {
     uint32_t elapsed = _promptReceivedMs ? (millis() - _promptReceivedMs) : PROMPT_HOLD_MS + 1;
     if (out->promptId[0] == 0 || elapsed > PROMPT_HOLD_MS) {
       out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
+      out->promptChoiceCount = 0;
       _promptReceivedMs = 0;
     }
   }
@@ -164,6 +180,7 @@ inline void dataPoll(TamaState* out) {
     out->sessionsTotal=0; out->sessionsRunning=0; out->sessionsWaiting=0;
     out->recentlyCompleted=false;
     out->personaState[0]=0; // clear on disconnect so fresh connect starts idle
+    out->promptChoiceCount = 0;
     _promptReceivedMs = 0;
   }
 }

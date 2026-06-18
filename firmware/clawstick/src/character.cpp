@@ -24,7 +24,7 @@ static const uint8_t PERSONA_TO_STATE[18] = {
   6,  // P_CELEBRATE   -> attention (happy)
   10, // P_DIZZY       -> dizzy
   6,  // P_HEART       -> attention (happy)
-  4,  // P_ERROR       -> error
+  5,  // P_ERROR       -> error
   3,  // P_JUGGLING    -> juggling
   4,  // P_SWEEPING    -> sweeping
   7,  // P_NOTIFICATION-> notification

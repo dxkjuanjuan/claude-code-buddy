@@ -195,7 +195,7 @@ class HardwareBuddyController {
 
     const id = typeof command.id === "string" ? command.id : "";
     const decision = command.decision;
-    const behavior = decision === "once" ? "allow" : (decision === "deny" ? "deny" : null);
+    const behavior = (decision === "once" || decision === "always") ? "allow" : (decision === "deny" ? "deny" : null);
     if (!id || !behavior) {
       this.log("ignored invalid hardware permission reply");
       return false;

@@ -95,6 +95,7 @@ static void wake() {
   if (dimmed) { applyBrightness(); dimmed = false; }
 }
 bool     responseSent = false;
+uint8_t  choiceSel = 0;       // selected choice index in approval overlay
 
 static void beep(uint16_t freq, uint16_t dur) {
   if (settings().sound) M5.Beep.tone(freq, dur);
@@ -407,6 +408,7 @@ void loop() {
       tama.promptId[0]   = 0;
       tama.promptTool[0] = 0;
       tama.promptHint[0] = 0;
+      tama.promptChoiceCount = 0;
       responseSent = true;                  // belt-and-suspenders
       dataSetSuppressPromptClear(false);    // L4-3 #2 hygiene
       // L4-3 #12: eat the in-progress button cycle. If the user was
@@ -432,13 +434,6 @@ void loop() {
   if (baseState == P_IDLE && (int32_t)(now - wakeTransitionUntil) < 0) baseState = P_SLEEP;
 
   if ((int32_t)(now - oneShotUntil) >= 0) activeState = baseState;
-
-  // LED: pulse on attention, otherwise off
-  if (activeState == P_ATTENTION && settings().led) {
-    digitalWrite(LED_PIN, (now / 400) % 2 ? LOW : HIGH);
-  } else {
-    digitalWrite(LED_PIN, HIGH);
-  }
 
   // shake → dizzy
   if (now - lastShakeCheck > 50) {
@@ -467,6 +462,7 @@ void loop() {
     tama.promptId[0]   = 0;
     tama.promptTool[0] = 0;
     tama.promptHint[0] = 0;
+    tama.promptChoiceCount = 0;
     responseAt = 0;
     dataSetSuppressPromptClear(false);   // L4-3 #2: release the hold
     // responseSent stays true until the next prompt arrives; the
@@ -480,6 +476,7 @@ void loop() {
     lastPromptId[sizeof(lastPromptId)-1] = 0;
     responseSent = false;
     responseAt = 0;
+    choiceSel = 0;
     dataSetSuppressPromptClear(false);   // L4-3 #2: new prompt cancels any stale hold
     if (tama.promptId[0]) {
       promptArrivedMs = millis();
@@ -500,6 +497,20 @@ void loop() {
   // landed before the screen flips back to the main card.
   bool inPrompt = tama.promptId[0] && !responseSent && bleSecure();
   bool showApproval = tama.promptId[0] && bleSecure();
+
+  // LED: blink on approval prompt or error state; off otherwise
+  {
+    bool needBlink = false;
+    if (settings().led) {
+      if (inPrompt) needBlink = true;
+      if (activeState == P_ERROR) needBlink = true;
+    }
+    if (needBlink) {
+      digitalWrite(LED_PIN, (now / 400) % 2 ? LOW : HIGH);
+    } else {
+      digitalWrite(LED_PIN, HIGH);
+    }
+  }
 
   // Button-press wake. Track which button woke the screen so its full
   // press cycle (including long-press) is swallowed.
@@ -563,20 +574,24 @@ void loop() {
       statsOnButtonInteract();
       if (overlayCapturesInput) {
         // Only inPrompt + a still-secure transport may emit a decision.
-        // bleSecure() re-checked here defends against an async BLE
-        // callback flipping secure between the loop-top compute and
-        // this release (plan §3.5.1 silent-ignore on insecure).
         if (showApproval && inPrompt && bleSecure()) {
-          char cmd[96];
-          snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"once\"}", tama.promptId);
-          sendCmd(cmd);
-          responseSent = true;
-          responseAt = millis();
-          dataSetSuppressPromptClear(true);   // L4-3 #2: hold sent... visible
-          uint32_t tookS = (millis() - promptArrivedMs) / 1000;
-          statsOnApproval(tookS);
-          beep(2400, 60);
-          if (tookS < 5) triggerOneShot(P_HEART, 2000);
+          if (tama.promptChoiceCount > 0) {
+            // Choices mode: A cycles through options
+            choiceSel = (choiceSel + 1) % tama.promptChoiceCount;
+            beep(1800, 30);
+          } else {
+            // Legacy mode: A = allow
+            char cmd[96];
+            snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"once\"}", tama.promptId);
+            sendCmd(cmd);
+            responseSent = true;
+            responseAt = millis();
+            dataSetSuppressPromptClear(true);
+            uint32_t tookS = (millis() - promptArrivedMs) / 1000;
+            statsOnApproval(tookS);
+            beep(2400, 60);
+            if (tookS < 5) triggerOneShot(P_HEART, 2000);
+          }
         }
         // else: passkey screen / sent... hold / racing-transport — silent.
       } else if (aboutOpen) {
@@ -611,14 +626,40 @@ void loop() {
       statsOnButtonInteract();
       if (overlayCapturesInput) {
         if (showApproval && inPrompt && bleSecure()) {
-          char cmd[96];
-          snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
-          sendCmd(cmd);
-          responseSent = true;
-          responseAt = millis();
-          dataSetSuppressPromptClear(true);
-          statsOnDenial();
-          beep(600, 60);
+          if (tama.promptChoiceCount > 0) {
+            // Choices mode: B confirms selected choice
+            const char* choice = tama.promptChoices[choiceSel];
+            // Map choice text to decision: "No" or "Deny" -> deny, else allow
+            bool isDeny = (strcmp(choice, "No") == 0 || strcmp(choice, "Deny") == 0);
+            char cmd[128];
+            if (isDeny) {
+              snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
+              statsOnDenial();
+              beep(600, 60);
+            } else {
+              // "Yes, always" -> "always", anything else -> "once"
+              bool isAlways = (strstr(choice, "always") != nullptr || strstr(choice, "Always") != nullptr);
+              snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"%s\"}", tama.promptId, isAlways ? "always" : "once");
+              uint32_t tookS = (millis() - promptArrivedMs) / 1000;
+              statsOnApproval(tookS);
+              beep(2400, 60);
+              if (tookS < 5) triggerOneShot(P_HEART, 2000);
+            }
+            sendCmd(cmd);
+            responseSent = true;
+            responseAt = millis();
+            dataSetSuppressPromptClear(true);
+          } else {
+            // Legacy mode: B = deny
+            char cmd[96];
+            snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
+            sendCmd(cmd);
+            responseSent = true;
+            responseAt = millis();
+            dataSetSuppressPromptClear(true);
+            statsOnDenial();
+            beep(600, 60);
+          }
         }
         // else: passkey / sent / race — silent.
       } else if (aboutOpen) {
@@ -695,7 +736,7 @@ void loop() {
   }
   if (!screenOff) {
     if (blePasskey()) drawPasskey();
-    else if (showApproval) ui_approval::render(tama, promptArrivedMs, responseSent);
+    else if (showApproval) ui_approval::render(tama, promptArrivedMs, responseSent, choiceSel);
     else if (resetOpen) ui_reset::render(resetSel, resetConfirmIdx, resetConfirmUntil);
     else if (settingsOpen) {
       const Settings& s = settings();

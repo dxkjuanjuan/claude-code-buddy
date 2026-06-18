@@ -9,10 +9,6 @@ namespace ui_approval {
 
 namespace {
 
-// Plan §1.1 colors (RGB565). Approval is full-screen so it doesn't
-// borrow from the character palette — character.cpp manifests may
-// theme accent/body, but the approval overlay must stay readable
-// independent of which mascot is installed.
 const uint16_t COL_BG       = 0x1082;
 const uint16_t COL_TEXT     = 0xFFFF;
 const uint16_t COL_TEXT_DIM = 0x7BEF;
@@ -20,6 +16,7 @@ const uint16_t COL_LABEL    = 0xBDF7;
 const uint16_t COL_DIVIDER  = 0x3186;
 const uint16_t COL_SUCCESS  = 0x07E0;
 const uint16_t COL_HOT      = 0xFA20;
+const uint16_t COL_ROW_SEL  = 0x2945;
 
 const int W = 135;
 const int H = 240;
@@ -32,34 +29,15 @@ const int Y_TOOL_LABEL  = 34;
 const int Y_TOOL_TEXT   = 48;
 const int Y_HINT_LABEL  = 78;
 const int Y_HINT_TEXT   = 92;
+const int Y_CHOICES     = 192;
+const int CHOICE_ROW_H  = 18;
 const int Y_FOOTER_DIV  = 208;
 const int Y_FOOTER      = 218;
 
-// Marquee: glyph speed (px per second) chosen so a 32-char tool name
-// (~ 384 px wide at size 2) makes one full loop in ≈ 9 s — slow enough
-// to read, not slow enough to feel stuck.
 const int      MARQUEE_GAP        = 30;
 const uint32_t MARQUEE_MS_PER_PX  = 35;
 const int      SIZE1_CHAR_W       = 6;
 const int      SIZE1_LINE_H       = 10;
-
-void drawTick(int x, int y, uint16_t col) {
-  // 6 px wide check mark. Two line segments forming a "✓":
-  //   (0,3)-(2,5)  short bottom-left rising
-  //   (2,5)-(6,1)  long upper-right rising
-  spr.drawLine(x,     y + 3, x + 2, y + 5, col);
-  spr.drawLine(x + 1, y + 3, x + 2, y + 4, col);   // thicken
-  spr.drawLine(x + 2, y + 5, x + 6, y + 1, col);
-  spr.drawLine(x + 2, y + 4, x + 6, y,     col);   // thicken
-}
-
-void drawCross(int x, int y, uint16_t col) {
-  // 6 px wide "✗": two diagonals, 2-pixel-thick.
-  spr.drawLine(x,     y,     x + 6, y + 6, col);
-  spr.drawLine(x + 1, y,     x + 6, y + 5, col);
-  spr.drawLine(x + 6, y,     x,     y + 6, col);
-  spr.drawLine(x + 5, y,     x,     y + 5, col);
-}
 
 void drawTitleRow(uint32_t waited) {
   spr.setTextSize(1);
@@ -67,13 +45,6 @@ void drawTitleRow(uint32_t waited) {
   spr.setCursor(PAD_X, Y_TITLE);
   spr.print(CLAWSTICK_APPROVAL_TITLE);
 
-  // Countdown switches to red once user has had >= 10 s to decide.
-  // Plan §3.6: "size 2 倒计时" — but at 135 px wide size 2 already
-  // uses 24 px for "Xs" and 120 px for "agent asks", which overflows.
-  // Compromise: title and countdown both size 1, countdown changes
-  // *color* (not size) at the 10 s threshold so the visual signal is
-  // delivered without breaking layout. Plan mockup also draws them on
-  // the same line, which size-1 supports cleanly.
   char count[8];
   snprintf(count, sizeof(count), "%us", (unsigned int)waited);
   int cw = (int)strlen(count) * 6;
@@ -180,25 +151,62 @@ void drawHintRow(const char* hint) {
   }
 }
 
+// Draw choices list. A scrolls up/down, B confirms.
+void drawChoices(const TamaState& tama, uint8_t sel) {
+  uint8_t n = tama.promptChoiceCount;
+  if (n == 0) return;
+
+  // Choices start at Y_CHOICES and extend upward if many.
+  // Calculate start y so choices are bottom-anchored near Y_FOOTER_DIV.
+  int startY = Y_FOOTER_DIV - n * CHOICE_ROW_H;
+
+  for (uint8_t i = 0; i < n; i++) {
+    int y = startY + i * CHOICE_ROW_H;
+    bool selected = (i == sel);
+
+    if (selected) {
+      spr.fillRect(PAD_X - 2, y - 2, CONTENT_W + 4, CHOICE_ROW_H - 2, COL_ROW_SEL);
+    }
+
+    spr.setTextSize(1);
+    spr.setTextColor(selected ? COL_TEXT : COL_TEXT_DIM, selected ? COL_ROW_SEL : COL_BG);
+    spr.setCursor(PAD_X, y);
+    spr.print(selected ? "> " : "  ");
+    spr.print(tama.promptChoices[i]);
+  }
+}
+
+// Legacy footer: no choices available, show A:allow B:deny
 void drawFooterAllowDeny() {
   spr.drawFastHLine(PAD_X, Y_FOOTER_DIV, CONTENT_W, COL_DIVIDER);
 
   spr.setTextSize(1);
 
-  // ✓ A allow (green) on the left.
-  drawTick(PAD_X, Y_FOOTER + 1, COL_SUCCESS);
+  // A allow (green) on the left.
   spr.setTextColor(COL_SUCCESS, COL_BG);
-  spr.setCursor(PAD_X + 10, Y_FOOTER + 2);
-  spr.print(CLAWSTICK_ALLOW_LABEL);
+  spr.setCursor(PAD_X, Y_FOOTER + 2);
+  spr.print("A: allow");
 
-  // ✗ B deny (red) on the right.
+  // B deny (red) on the right.
   spr.setTextColor(COL_HOT, COL_BG);
-  const char* deny = CLAWSTICK_DENY_LABEL;
+  const char* deny = "B: deny";
   int dw = (int)strlen(deny) * 6;
-  int denyX = W - PAD_X - dw;
-  spr.setCursor(denyX, Y_FOOTER + 2);
+  spr.setCursor(W - PAD_X - dw, Y_FOOTER + 2);
   spr.print(deny);
-  drawCross(denyX - 10, Y_FOOTER + 1, COL_HOT);
+}
+
+// Choices mode footer: A:up/down B:confirm
+void drawFooterChoices() {
+  spr.drawFastHLine(PAD_X, Y_FOOTER_DIV, CONTENT_W, COL_DIVIDER);
+
+  spr.setTextSize(1);
+  spr.setTextColor(COL_TEXT_DIM, COL_BG);
+  spr.setCursor(PAD_X, Y_FOOTER + 2);
+  spr.print("A: select");
+  const char* right = "B: confirm";
+  int rw = (int)strlen(right) * 6;
+  spr.setCursor(W - PAD_X - rw, Y_FOOTER + 2);
+  spr.print(right);
 }
 
 void drawSent() {
@@ -213,11 +221,8 @@ void drawSent() {
 
 void render(const TamaState& tama,
             uint32_t promptArrivedMs,
-            bool responseSent) {
-  // Approval is full-screen and prompts arrive sparsely (not 60 fps),
-  // so a whole-sprite clear per frame is cheap and avoids the
-  // region-tracking that the HOME card needs because of the GIF
-  // tick cadence.
+            bool responseSent,
+            uint8_t choiceSel) {
   spr.fillSprite(COL_BG);
 
   if (responseSent) {
@@ -229,7 +234,13 @@ void render(const TamaState& tama,
   drawTitleRow(waited);
   drawToolName(tama.promptTool);
   drawHintRow(tama.promptHint);
-  drawFooterAllowDeny();
+
+  if (tama.promptChoiceCount > 0) {
+    drawChoices(tama, choiceSel);
+    drawFooterChoices();
+  } else {
+    drawFooterAllowDeny();
+  }
 }
 
 }  // namespace ui_approval

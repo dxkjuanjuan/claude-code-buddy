@@ -195,10 +195,19 @@ function buildHardwareBuddyHeartbeat(options = {}) {
   if (activePrompt) {
     const tool = sanitizeLine(activePrompt.entry.toolName) || "Unknown";
     heartbeat.msg = `approve: ${tool}`;
+    // Claude Code permission choices are typically:
+    // "Yes" / "Yes, always for this tool" / "No"
+    // The pendingPermission entry may not carry a choices field,
+    // so provide sensible defaults when absent.
+    const entryChoices = activePrompt.entry.choices;
+    const choices = Array.isArray(entryChoices) && entryChoices.length > 0
+      ? entryChoices.slice(0, 4)
+      : ["Yes", "Yes, always", "No"];
     heartbeat.prompt = {
       id: activePrompt.id,
       tool,
       hint: shortHintFor(activePrompt.entry, { maxBytes: 80 }),
+      choices,
     };
     return heartbeat;
   }
