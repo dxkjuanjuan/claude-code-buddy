@@ -1,381 +1,190 @@
-# ClaudeBuddy / Clawstick
+# Clawstick — Claude Code 的硬件伙伴 / Hardware Buddy for Claude Code
 
-ClaudeBuddy is a standalone Hardware Buddy bridge runtime for ClaudeBuddy and
-Clawstick devices. It can run without Clawd or Electron: a local process feeds
-agent state into the runtime, the runtime mirrors that state to a small BLE
-device, and secure hardware button replies can be returned to the local adapter
-when explicitly enabled.
+Clawstick 是一个基于 M5StickC Plus 的硬件伴侣，通过 BLE 连接到电脑，实时显示 Claude Code 的 16 种 clawd 表情，并支持在 M5 上审批权限请求。
 
-This package is still pre-release. The npm package is scoped for the standalone
-runtime, but `private:true` remains set until the public repository and release
-process are finalized.
+Clawstick is an M5StickC Plus-based hardware companion that connects to your PC via BLE, displays 16 clawd expressions from Claude Code in real time, and supports permission approval on the M5 device.
 
-## What It Provides
+## 架构 / Architecture
 
-- Node CLI and package exports for the bridge core
-- Fake transport for local smoke tests without hardware
-- Optional Python `bleak` sidecar for Nordic UART BLE devices
-- JSON-file, stdin JSONL, and loopback HTTP state inputs
-- JSONL, long-poll, and SSE permission reply outputs
-- Loopback Quick Commands events for adapter-owned follow-up actions
-- Windows daemon, Scheduled Task, tray, and shortcut helper scripts
-- Safe public example configs with hardware permission replies disabled by default
+```
+Claude Code → hooks → clawd-on-desk (port 23333) → BLE → M5StickC Plus
+```
 
-Hardware approval replies are fail-closed by default. Turn them on only after
-the device is paired/bonded and the runtime reports a secure BLE link.
+共用方案：M5 依赖 clawd-on-desk 作为中间层，不需要独立运行 clawstick bridge。clawd-on-desk 内部加载 clawstick 的 controller + sidecar，自动通过 BLE 推送状态和权限到 M5。
 
-## Requirements
+Shared approach: M5 relies on clawd-on-desk as middleware — no independent clawstick bridge needed. clawd-on-desk internally loads clawstick's controller + sidecar, automatically pushing state and permissions to M5 via BLE.
 
-- Node.js 18 or newer
-- Windows for the managed daemon/tray scripts
-- Python plus `bleak` only when using the real BLE sidecar
-- A Hardware Buddy-compatible Nordic UART device for BLE mode
+## 功能 / Features
 
-## Quick Start
+- 16 种 clawd 表情实时同步（idle / working / thinking / error / dizzy 等）
+- M5 权限审批：多选项列表（Yes / Yes, always / No），A 上下选择，B 确认
+- LED 闪灯：审批提示和 error 状态时闪烁
+- 3 个主页面：HOME / STATS / LINK，A 键切换
+- 设置菜单：亮度、声音、蓝牙、LED、重置
+- 低电量自动关屏、翻转扣下休眠
+- BLE 安全配对，权限审批仅限加密通道
 
-From a source checkout:
+## 目录结构 / Directory Structure
+
+```
+├── firmware/clawstick/        # M5StickC Plus 固件 (PlatformIO / Arduino)
+│   ├── src/                   #   源码
+│   └── data/                  #   LittleFS 文件系统 (GIF 角色)
+├── src/hardware-buddy/        # clawd-on-desk 集成模块
+│   ├── controller.js          #   BLE 状态机 + 权限处理
+│   ├── sidecar-client.js      #   Python bleak BLE 客户端
+│   ├── snapshot.js            #   状态快照构建 (含 choices)
+│   ├── eligibility.js         #   权限过滤
+│   └── prompt-id-registry.js  #   prompt ID 映射
+├── hooks/                     # Claude Code hook 脚本
+│   └── clawstick-hook.js      #   事件 → clawd-on-desk /state
+├── deploy/                    # 部署文档和脚本
+│   └── SETUP.md               #   详细部署指南
+└── scripts/                   # 工具脚本
+```
+
+## 快速开始 / Quick Start
+
+### 前置条件 / Prerequisites
+
+- Node.js 18+
+- Python 3 + `pip install platformio bleak`
+- [clawd-on-desk](https://github.com/nicepkg/clawd) 桌面版
+- M5StickC Plus 开发板
+- Claude Code CLI
+
+### 1. 刷固件 / Flash Firmware
+
+```bash
+cd firmware/clawstick
+pio run -t upload      # 编译并烧录固件
+pio run -t uploadfs    # 上传 GIF 文件系统（首次必须）
+```
+
+### 2. 设置环境变量 / Set Environment Variable
+
+clawd-on-desk 需要找到 clawstick 核心模块：
 
 ```powershell
-npm install
-node bin\claudebuddy.js --help
-node bin\claudebuddy.js --config examples\claudebuddy.fake.config.json --once --once-ms 0
+[System.Environment]::SetEnvironmentVariable(
+  'CLAWD_HARDWARE_BUDDY_ROOT',
+  'C:\Users\<你的用户名>\Desktop\m5stack\clawstick',
+  'User'
+)
 ```
 
-After package installation, use the `claudebuddy` binary instead of
-`node bin\claudebuddy.js`.
+clawd-on-desk needs to find clawstick core modules. Set this and **restart clawd-on-desk**.
 
-## BLE Smoke
+### 3. 配置 clawd-on-desk / Configure clawd-on-desk
 
-Install the optional Python sidecar dependency:
+1. 打开 clawd-on-desk 设置（右键宠物图标 → 设置）
+2. 进入 **远程审批 (Telegram Approval)** 标签页
+3. 在 **硬件伙伴 (Hardware Buddy)** 卡片中：
+   - 启用开关
+   - 填入 M5 的 BLE 地址
+   - 启用权限批准 (Permissions)
 
-```powershell
-pip install -r tools\requirements-sidecar.txt
+扫描 M5 BLE 地址 / Scan for M5 BLE address:
+
+```python
+import asyncio
+from bleak import BleakScanner
+
+async def scan():
+    devices = await BleakScanner.discover(timeout=10)
+    for d in devices:
+        if "Claw" in (d.name or ""):
+            print(f"{d.address}  {d.name}")
+
+asyncio.run(scan())
 ```
 
-Scan for a compatible device:
+### 4. Windows 蓝牙配对 / Bluetooth Pairing
 
-```powershell
-python tools\hardware_buddy_bridge.py --backend bleak --scan-timeout 8
+1. Windows 蓝牙设置 → 添加设备 → 找到 Clawstick → 配对
+2. clawd-on-desk 自动连接（状态变为 connected + secure）
+
+### 5. 验证 / Verify
+
+启动 Claude Code，M5 应自动显示表情同步：
+
+```bash
+claude
 ```
 
-Run the safe BLE template:
+## 权限审批 / Permission Approval
 
-```powershell
-node bin\claudebuddy.js --config examples\claudebuddy.http-ble.example.config.json --once --once-ms 6000
+当 Claude Code 请求权限时，M5 弹出审批界面：
+
+- **有选项时**：显示列表（如 Yes / Yes, always / No），A 上下选择，B 确认
+- **无选项时**：A 允许，B 拒绝
+- LED 红灯闪烁提示有待审批
+
+When Claude Code requests permission, M5 shows the approval overlay:
+
+- **With choices**: scrollable list, A to navigate, B to confirm
+- **Without choices**: A to allow, B to deny
+- Red LED blinks when approval is pending
+
+## 数据流 / Data Flow
+
+```
+状态更新：Claude Code → clawd-hook.js → POST /state → clawd-on-desk → BLE → M5
+权限请求：Claude Code → HTTP hook → POST /permission → clawd-on-desk → BLE → M5
+M5 审批：M5 按钮 → BLE 命令 → controller → resolvePermissionEntry → HTTP 响应 → Claude Code
 ```
 
-The public BLE template scans by `namePrefix`, enables the loopback HTTP control
-server, and keeps `permissionReplies:false`. Copy it to `claudebuddy.config.json`
-and set a discovered `address` when you want a stable fixed-device profile.
-
-## Windows Daemon And Tray
-
-The managed scripts wrap the same Node CLI with a consistent config path, PID
-file, log file, status check, and optional autostart:
-
-```powershell
-.\scripts\start-claudebuddy-daemon.ps1
-.\scripts\status-claudebuddy-daemon.ps1
-.\scripts\stop-claudebuddy-daemon.ps1
-.\scripts\claudebuddy-control.ps1 -Action status -Json
-.\scripts\claudebuddy-tray.ps1 -ValidateOnly -Json
-```
-
-Install autostart only after checking the dry run:
-
-```powershell
-.\scripts\install-claudebuddy-scheduled-task.ps1 -WhatIf
-.\scripts\install-claudebuddy-scheduled-task.ps1 -WhatIf -Json
-.\scripts\install-claudebuddy-scheduled-task.ps1
-```
-
-Install or remove tray shortcuts:
-
-```powershell
-.\scripts\install-claudebuddy-tray-shortcuts.ps1
-.\scripts\uninstall-claudebuddy-tray-shortcuts.ps1
-```
-
-See [Standalone Daemon On Windows](docs/standalone-daemon-windows.md) for the
-full foreground, background, Scheduled Task, tray, and shortcut workflows.
-
-## Local Windows Install
-
-For pre-release local installs, first build a package artifact from the source
-checkout:
-
-```powershell
-.\scripts\package-claudebuddy-local-release.ps1 -Json
-```
-
-Then inspect the install plan before writing anything:
-
-```powershell
-.\scripts\install-claudebuddy-local.ps1 -WhatIf -Json
-```
-
-The default install writes only a local npm package payload and
-`claudebuddy.config.json` under the install directory, then validates the
-packaged tray script. When `-InstallDir` is omitted, the install directory is
-the current user's `%LOCALAPPDATA%\ClaudeBuddy\Standalone`. It does not create
-shortcuts, register autostart, or start the daemon unless you ask for those
-steps:
-
-```powershell
-.\scripts\install-claudebuddy-local.ps1 -Json
-```
-
-Optional install switches touch more of Windows:
-
-- `-AllShortcuts`, `-StartMenu`, or `-Startup` create `.lnk` files. Without
-  `-StartMenuDir` / `-StartupDir`, they use the real current-user Start Menu or
-  Startup folders.
-- `-Autostart` registers a current-user Windows Scheduled Task.
-- `-StartDaemon` starts the managed Node daemon immediately.
-- `-Force` overwrites an existing generated config from the packaged template.
-
-For isolated smoke runs, pass explicit temp paths:
-
-```powershell
-$root = Join-Path $env:TEMP "claudebuddy-local-install"
-.\scripts\install-claudebuddy-local.ps1 `
-  -InstallDir "$root\install" `
-  -Config "$root\install\claudebuddy.config.json" `
-  -PidFile "$root\install\logs\claudebuddy-daemon.pid" `
-  -StartMenuDir "$root\shortcuts\start-menu" `
-  -StartupDir "$root\shortcuts\startup" `
-  -Json
-```
-
-## Local Windows Uninstall
-
-Preview uninstall first:
-
-```powershell
-.\scripts\uninstall-claudebuddy-local.ps1 -WhatIf -Json
-```
-
-The default uninstall stops the managed daemon if its PID file is present,
-removes the configured Scheduled Task, removes tray shortcuts, and removes the
-installed package payload. It keeps config files, logs, and the install
-directory by default:
-
-```powershell
-.\scripts\uninstall-claudebuddy-local.ps1 -Json
-```
-
-Use explicit removal switches for disposable installs:
-
-```powershell
-.\scripts\uninstall-claudebuddy-local.ps1 `
-  -RemoveConfig `
-  -RemoveLogs `
-  -RemoveInstallDir `
-  -Json
-```
-
-`-RemoveInstallDir` only removes the install directory after package/config/log
-cleanup leaves it empty. Use `-KeepDaemon`, `-KeepAutostart`, or
-`-KeepShortcuts` when you want to leave one of those pieces in place. If you
-installed shortcuts with custom `-StartMenuDir` / `-StartupDir`, pass the same
-paths during uninstall.
-
-## Configuration
-
-The CLI loads built-in defaults first. If `claudebuddy.config.json` exists in
-the current working directory, it is loaded automatically. `--config <path>`
-loads an explicit config file, and CLI flags override file values.
-
-Safe packaged templates:
-
-- [examples/claudebuddy.fake.config.json](examples/claudebuddy.fake.config.json)
-- [examples/claudebuddy.http-ble.example.config.json](examples/claudebuddy.http-ble.example.config.json)
-- [examples/claudebuddy.http-control.config.json](examples/claudebuddy.http-control.config.json)
-- [examples/claudebuddy.json-file.config.json](examples/claudebuddy.json-file.config.json)
-- [examples/claudebuddy.quick-commands.config.json](examples/claudebuddy.quick-commands.config.json)
-- [examples/claudebuddy.stdin-jsonl.config.json](examples/claudebuddy.stdin-jsonl.config.json)
-- [examples/state.sample.json](examples/state.sample.json)
-
-Common fields:
-
-```json
-{
-  "source": "static",
-  "transport": "sidecar",
-  "backend": "bleak",
-  "namePrefix": "Claude",
-  "controlServer": true,
-  "controlHost": "127.0.0.1",
-  "controlPort": 27217,
-  "permissionReplies": false,
-  "keepaliveMs": 10000,
-  "pollStatusMs": 1000,
-  "logLevel": "info",
-  "jsonLogs": true,
-  "logFile": "logs/claudebuddy-daemon.jsonl"
-}
-```
-
-Use `address` instead of `namePrefix` for a fixed device. Use
-`sidecarDiagnostics:false` only when you have already ruled out BLE sidecar
-contention and want quieter logs.
-
-## State Inputs
-
-Use `source:"json-file"` when another local process should publish state by
-rewriting a file:
-
-```powershell
-node bin\claudebuddy.js --config examples\claudebuddy.json-file.config.json
-```
-
-Use `source:"stdin-jsonl"` when a parent process owns lifetime and wants to pipe
-one state object per line:
-
-```powershell
-'{"sessions":[{"id":"standalone","title":"Pipe task","state":"working"}],"permissions":[],"doNotDisturb":false}' | node bin\claudebuddy.js --source stdin-jsonl --transport fake --once --once-ms 300
-```
-
-Use `controlServer:true` when another local adapter should drive state over HTTP:
-
-```powershell
-node bin\claudebuddy.js --config examples\claudebuddy.http-control.config.json
-```
-
-The HTTP surface exposes:
-
-- `GET /health`
-- `GET /status`
-- `POST /state`
-- `POST /snapshot`
-- `GET /replies?after=<seq>`
-- `GET /replies?after=<seq>&wait=<ms>`
-- `GET /replies/stream?after=<seq>`
-- `GET /quick-commands/presets`
-- `POST /quick-commands`
-- `GET /quick-commands?after=<seq>`
-- `GET /quick-commands?after=<seq>&wait=<ms>`
-
-`POST /state` accepts the normalized sessions/permissions shape described in
-[Normalized Contract](docs/contracts/normalized-contract.md).
-
-## Quick Commands
-
-Quick Commands are opt-in event intents for local adapters. They do not run
-shell commands, paste into the foreground window, or inject built-in prompt text.
-The runtime validates preset ids and buffers events; one adapter should consume
-them and decide how to turn them into messages, temporary constraints, or local
-actions.
-
-Enable the local smoke profile with:
-
-```powershell
-node bin\claudebuddy.js --config examples\claudebuddy.quick-commands.config.json
-```
-
-The Windows tray shows a `Quick Commands` submenu when the daemon/control server
-is available and quick commands are enabled. Menu clicks post stable preset ids
-to `POST /quick-commands` with `source:"tray"` and a generated
-`clientRequestId`; localized labels are display text only.
-
-A reference adapter-facing consumer is available for local smoke and integration
-work:
-
-```powershell
-node bin\claudebuddy-quick-command-consumer.js --config examples\claudebuddy.quick-commands.config.json --once --wait-ms 0
-```
-
-It reads `/quick-commands` and appends `quick_command_action` JSONL records to
-`logs\quick-command-actions.jsonl`. Those records are still adapter-owned
-actions: message presets become proposed messages, constraint presets use
-`duration:"next_turn"`, and `show_diff` is emitted as `local_action` with
-`runShell:false`. Configure only one executing consumer until a later claim/ack
-protocol exists.
-
-Adapters can also post an explicit task-finished signal for tray affordances:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:27217/task-state `
-  -Method Post `
-  -ContentType application/json `
-  -Body '{"sessionId":"session-1","state":"finished","title":"Refactor settings flow","source":"adapter"}'
-```
-
-`/task-state` is disabled with quick commands. The tray treats a recent
-`state:"finished"` record as a short-lived prompt to open the Quick Commands
-menu; it does not auto-send a command or infer task completion from snapshots,
-logs, or terminal text.
-
-## Permission Replies
-
-Permission replies are disabled unless `permissionReplies:true` is set. Accepted
-hardware replies can be consumed through:
-
-- `replyFile` / `replyMode:"jsonl"`
-- `GET /replies?after=<seq>`
-- `GET /replies?after=<seq>&wait=<ms>`
-- `GET /replies/stream?after=<seq>`
-
-Reply records intentionally omit full `toolInput`. External adapters should
-remove resolved permissions from their source state after consuming a reply; the
-runtime also suppresses already replied JSON-file permissions locally while it
-waits for the writer to catch up.
-
-If `controlToken` is configured, HTTP clients must send either
-`Authorization: Bearer <token>` or `X-ClaudeBuddy-Token: <token>`.
-
-## Package Contents
-
-The npm payload is intentionally narrow:
-
-- `bin/`
-- `src/`
-- `scripts/`
-- Python sidecar files under `tools/`
-- safe example configs under `examples/`
-- [docs/contracts/normalized-contract.md](docs/contracts/normalized-contract.md)
-- [docs/standalone-daemon-windows.md](docs/standalone-daemon-windows.md)
-
-Local hardware profiles, firmware workspaces, experiments, tests, and agent
-handoff files are not part of the package payload.
-
-## Development
-
-```powershell
-npm test
-npm pack --dry-run --json
-.\scripts\package-claudebuddy-local-release.ps1 -SkipTests -Json
-.\scripts\smoke-claudebuddy-local-artifact.ps1 -Json
-.\scripts\install-claudebuddy-local.ps1 -WhatIf -Json
-.\scripts\uninstall-claudebuddy-local.ps1 -WhatIf -Json
-```
-
-The standalone runtime package currently uses the MIT license. The npm payload
-does not include the firmware workspace or Clawstick animation assets.
-
-For the source repository:
-
-- Bridge/runtime source code is MIT licensed unless a file says otherwise.
-- `firmware/clawstick` includes code derived from Anthropic's MIT-licensed
-  Hardware Buddy reference; see [NOTICE.md](NOTICE.md) and
-  [firmware/clawstick/LICENSE.upstream](firmware/clawstick/LICENSE.upstream).
-- Clawstick's Clawd GIF/SVG artwork is not covered by MIT. It follows the same
-  artwork terms as the main Clawd on Desk repository; see
-  [firmware/clawstick/ASSETS-LICENSE.md](firmware/clawstick/ASSETS-LICENSE.md).
-
-Release metadata such as `repository`, `bugs`, and `homepage` will be added
-after the public repository URL is finalized.
-
-## Project Scope
-
-ClaudeBuddy is the bridge runtime. Clawstick is the first hardware endpoint.
-Desktop apps such as Clawd can integrate through the normalized contract or the
-loopback HTTP control surface, but the runtime does not require a desktop UI.
-
-The guiding constraints are:
-
-- Terminal-first: terminal approval remains authoritative.
-- UI-optional: the bridge can run headless or through a tray.
-- Hardware-thin: the device mirrors state and returns simple decisions.
-- Open protocol first: the BLE path stays compatible with the Hardware Buddy
-  Nordic UART protocol before adding product-specific extensions.
+## 修改记录 / Modifications from Upstream
+
+### 固件 / Firmware (基于 Anthropic Hardware Buddy reference)
+
+| 文件 | 修改内容 |
+|------|----------|
+| `character.cpp` | 16-state clawd 表情映射；P_ERROR 修正为 error GIF (索引5) |
+| `main.cpp` | 16-state 表情系统 + 审批 overlay + 多选项列表；LED 仅在审批/error 时闪；A/B 按钮重映射 |
+| `data.h` | TamaState 增加 promptChoices 字段；解析 BLE prompt 中的 choices 数组 |
+| `approval.cpp/h` | 完整重写：支持多选项列表，A 滚动 B 确认 |
+| `home.cpp` | 状态栏 + 名字/状态/sessions 布局 + 3 页面路由 |
+| `link.cpp` | BLE 连接状态 + 电源信息页面 |
+| `stats.cpp/h` | Settings 持久化；统计系统（审批/拒绝/小睡/摇晃） |
+
+### 软件 / Software (clawd-on-desk 集成模块)
+
+| 文件 | 修改内容 |
+|------|----------|
+| `snapshot.js` | heartbeat.prompt 增加 choices 数组，默认 ["Yes", "Yes, always", "No"] |
+| `controller.js` | 支持 "always" decision（原版只支持 "once" 和 "deny"） |
+
+### Hook / 钩子
+
+| 文件 | 修改内容 |
+|------|----------|
+| `clawstick-hook.js` | POST flat JSON 到 clawd-on-desk /state（原版独立 bridge） |
+
+## 换电脑部署 / Deploying on a New PC
+
+1. 安装依赖：`pip install bleak platformio` + Node.js
+2. 复制 clawstick 仓库到新电脑
+3. 刷固件（步骤1）
+4. 设置 `CLAWD_HARDWARE_BUDDY_ROOT` 环境变量（步骤2）
+5. 配置 clawd-on-desk：扫描并填入新 M5 的 BLE 地址（步骤3）
+6. Windows 蓝牙配对（步骤4）
+7. 启动 clawd-on-desk + Claude Code
+
+**注意**：每台 M5 的 BLE 地址不同，必须重新扫描。每次刷固件后需删除 Windows 上的蓝牙配对重新连接。
+
+## 常见问题 / Troubleshooting
+
+| 问题 | 解决方案 |
+|------|----------|
+| clawd-on-desk 找不到核心模块 | 确认 `CLAWD_HARDWARE_BUDDY_ROOT` 指向仓库路径，重启 clawd-on-desk |
+| 权限提示不显示 | 确认硬件伙伴的 Permissions 开关已启用；确认 connected=true, secure=true |
+| 刷固件后连接不上 | 删除 Windows 蓝牙配对，重新配对 |
+| error 状态显示扫地 GIF | 已修复：P_ERROR 现在映射到 error GIF |
+| 审批只有 allow/deny | 需要更新 clawd-on-desk 里的 snapshot.js（本仓库已包含） |
+
+## License
+
+- Bridge/runtime 源码：MIT
+- `firmware/clawstick` 包含基于 Anthropic MIT 许可的 Hardware Buddy 参考代码，见 [NOTICE.md](NOTICE.md)
+- Clawd GIF/SVG 美术素材遵循 clawd-on-desk 的素材条款，见 [ASSETS-LICENSE.md](firmware/clawstick/ASSETS-LICENSE.md)
