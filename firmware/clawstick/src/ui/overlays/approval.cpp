@@ -39,11 +39,22 @@ const uint32_t MARQUEE_MS_PER_PX  = 35;
 const int      SIZE1_CHAR_W       = 6;
 const int      SIZE1_LINE_H       = 10;
 
-void drawTitleRow(uint32_t waited) {
+void drawTitleRow(uint32_t waited, const TamaState& tama) {
   spr.setTextSize(1);
-  spr.setTextColor(COL_TEXT_DIM, COL_BG);
-  spr.setCursor(PAD_X, Y_TITLE);
-  spr.print(CLAWSTICK_APPROVAL_TITLE);
+
+  // Show "#N projectname" when session identity is available
+  if (tama.promptSessionIdx < tama.sessionCount) {
+    const SessionInfo& si = tama.sessions[tama.promptSessionIdx];
+    char label[24];
+    snprintf(label, sizeof(label), "#%u %s", (unsigned)(tama.promptSessionIdx + 1), si.title);
+    spr.setTextColor(COL_TEXT, COL_BG);
+    spr.setCursor(PAD_X, Y_TITLE);
+    spr.print(label);
+  } else {
+    spr.setTextColor(COL_TEXT_DIM, COL_BG);
+    spr.setCursor(PAD_X, Y_TITLE);
+    spr.print(CLAWSTICK_APPROVAL_TITLE);
+  }
 
   char count[8];
   snprintf(count, sizeof(count), "%us", (unsigned int)waited);
@@ -231,7 +242,7 @@ void render(const TamaState& tama,
   }
 
   uint32_t waited = (millis() - promptArrivedMs) / 1000;
-  drawTitleRow(waited);
+  drawTitleRow(waited, tama);
   drawToolName(tama.promptTool);
   drawHintRow(tama.promptHint);
 

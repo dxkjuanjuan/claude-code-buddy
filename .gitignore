@@ -47,3 +47,11 @@ firmware/clawstick/test/
 .DS_Store
 Thumbs.db
 *.swp
+
+# Dev logs (conversation records, not for distribution)
+firmware/clawstick/docs/dev-logs/
+
+# API / sensitive files
+firmware/clawstick/hardware-buddy-adapter.js
+tools/ble-diag.py
+tools/test-usb-heartbeat.py

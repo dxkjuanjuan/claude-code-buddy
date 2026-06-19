@@ -13,17 +13,19 @@ const RUNNING_STATES = new Set([
   "juggling",
   "carrying",
   "sweeping",
+  "error",
 ]);
 
 const DEFAULT_STATE_PRIORITY = Object.freeze({
   sweeping: 6,
+  error: 5,
   carrying: 4,
   juggling: 4,
   working: 3,
   thinking: 2,
   idle: 1,
   sleeping: 0,
-});
+}));
 
 function normalizeSessions(sessionSnapshot) {
   if (Array.isArray(sessionSnapshot)) return sessionSnapshot.filter(Boolean);
@@ -191,6 +193,19 @@ function buildHardwareBuddyHeartbeat(options = {}) {
     tokens_today: nonNegativeInteger(options.tokensToday),
   };
 
+  // Compact per-session array for firmware multi-session UI.
+  // Each row: [id_suffix(4chars), title(16max), state, updatedAt_epoch, createdAt_epoch]
+  heartbeat.s = visibleSessions.slice(0, 4).map((session) => {
+    const id = String(session.id || "");
+    return [
+      id.length > 4 ? id.slice(-4) : id,
+      truncateUtf8(session.displayTitle || session.sessionTitle || "", 16),
+      session.state || "idle",
+      numericTime(session.updatedAt) || 0,
+      numericTime(session.createdAt) || 0,
+    ];
+  });
+
   const activePrompt = promptCandidates[0] || null;
   if (activePrompt) {
     const tool = sanitizeLine(activePrompt.entry.toolName) || "Unknown";
@@ -203,11 +218,16 @@ function buildHardwareBuddyHeartbeat(options = {}) {
     const choices = Array.isArray(entryChoices) && entryChoices.length > 0
       ? entryChoices.slice(0, 4)
       : ["Yes", "Yes, always", "No"];
+    const promptSession = activePrompt.entry && activePrompt.entry.sessionId;
+    const si = promptSession
+      ? visibleSessions.findIndex((s) => s.id === promptSession)
+      : -1;
     heartbeat.prompt = {
       id: activePrompt.id,
       tool,
       hint: shortHintFor(activePrompt.entry, { maxBytes: 80 }),
       choices,
+      si: si >= 0 ? si : 0xFF,
     };
     return heartbeat;
   }

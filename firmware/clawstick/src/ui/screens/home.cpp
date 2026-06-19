@@ -49,13 +49,22 @@ const char* personaLabel(uint8_t p) {
   }
 }
 
-void drawStatusBar(uint8_t batPct, bool secureLink, bool charging) {
-  // Page indicator: 3 dots on left, HOME (i=0) active. STATS/LINK
-  // wired in L3, but the placeholder dots ship now so the layout
-  // never shifts under the user's eye between L2 and L3.
+void drawStatusBar(uint8_t batPct, bool secureLink, bool charging,
+                   uint8_t sessionCount, uint8_t activeSession) {
+  // Page indicator: 3 dots on left, HOME (i=0) active.
   for (int i = 0; i < 3; i++) {
     int cx = 8 + i * 8;
     spr.fillCircle(cx, 7, 2, i == 0 ? COL_ACCENT : COL_TEXT_DIM);
+  }
+
+  // Session indicator "1/3" between dots and clock
+  if (sessionCount > 1) {
+    char si[8];
+    snprintf(si, sizeof(si), "%u/%u", (unsigned)(activeSession + 1), (unsigned)sessionCount);
+    spr.setTextSize(1);
+    spr.setTextColor(COL_ACCENT, COL_BG);
+    spr.setCursor(32, 3);
+    spr.print(si);
   }
 
   spr.setTextSize(1);
@@ -66,12 +75,6 @@ void drawStatusBar(uint8_t batPct, bool secureLink, bool charging) {
   spr.setCursor(135 - bw - 12, 3);
   spr.print(bat);
 
-  // Mini clock (L3-5): centered in the gap between page indicator and
-  // battery. Shows real "HH:MM" once the BLE sidecar pushes a time
-  // packet ({"time":[epoch, tz]}); before that we print a dim "--:--"
-  // placeholder so the layout slot is visible — without the placeholder
-  // an un-synced device looks identical to one where the clock feature
-  // isn't shipped at all.
   char clk[8];
   bool synced = statsClockText(clk, sizeof(clk));
   if (!synced) snprintf(clk, sizeof(clk), "--:--");
@@ -84,55 +87,71 @@ void drawStatusBar(uint8_t batPct, bool secureLink, bool charging) {
                   : bleConnected() ? COL_ACCENT
                   : COL_TEXT_DIM;
   spr.fillCircle(135 - 6, 7, 2, bleCol);
-  (void)charging;  // surfaced in LINK card (L3); not in HOME status bar
+  (void)charging;
 }
 
-void drawNameStatusSessions(const TamaState& tama, uint8_t persona,
-                            const char* owner, const char* petname) {
-  // GIF ends at y=134. Gap of 6 px then name; 20 px row pitch from there.
+void drawProjectStatusSessions(const TamaState& tama, uint8_t persona,
+                               const char* owner, const char* petname) {
   int y = 140;
 
-  // Name block. Single-line size 2 if it fits (≤ 11 chars on 135 px
-  // screen); otherwise wrap owner onto a small line above the pet name
-  // so "LuLu's Clawstick" (16 chars, 192 px) doesn't get truncated.
-  spr.setTextDatum(TC_DATUM);
-  spr.setTextColor(COL_TEXT, COL_BG);
-  if (owner && owner[0]) {
-    char combined[48];
-    snprintf(combined, sizeof(combined), "%s's %s", owner, petname);
-    int oneLineW = (int)strlen(combined) * 12;  // size 2 glyph width
-    if (oneLineW <= 130) {
-      spr.setTextSize(2);
-      spr.drawString(combined, 135 / 2, y);
-      y += 20;
+  // When sessions exist, show project name instead of pet name
+  bool hasSession = tama.sessionCount > 0 && tama.activeSession < tama.sessionCount;
+  if (hasSession) {
+    const char* title = tama.sessions[tama.activeSession].title;
+    spr.setTextDatum(TC_DATUM);
+    spr.setTextColor(COL_TEXT, COL_BG);
+    spr.setTextSize(2);
+    if (title && title[0]) {
+      // Truncate to fit screen (11 chars at size 2)
+      char buf[12];
+      int len = (int)strlen(title);
+      if (len > 11) len = 11;
+      memcpy(buf, title, len);
+      buf[len] = 0;
+      spr.drawString(buf, 135 / 2, y);
     } else {
-      // Owner row in size 1 above, pet name in size 2 below.
-      char ownerLine[28];
-      snprintf(ownerLine, sizeof(ownerLine), "%s's", owner);
-      spr.setTextSize(1);
-      spr.drawString(ownerLine, 135 / 2, y);
-      y += 10;
+      spr.drawString(petname, 135 / 2, y);
+    }
+    spr.setTextDatum(TL_DATUM);
+    y += 20;
+  } else {
+    // No session data: show owner's petname (original layout)
+    spr.setTextDatum(TC_DATUM);
+    spr.setTextColor(COL_TEXT, COL_BG);
+    if (owner && owner[0]) {
+      char combined[48];
+      snprintf(combined, sizeof(combined), "%s's %s", owner, petname);
+      int oneLineW = (int)strlen(combined) * 12;
+      if (oneLineW <= 130) {
+        spr.setTextSize(2);
+        spr.drawString(combined, 135 / 2, y);
+        y += 20;
+      } else {
+        char ownerLine[28];
+        snprintf(ownerLine, sizeof(ownerLine), "%s's", owner);
+        spr.setTextSize(1);
+        spr.drawString(ownerLine, 135 / 2, y);
+        y += 10;
+        spr.setTextSize(2);
+        spr.drawString(petname, 135 / 2, y);
+        y += 20;
+      }
+    } else {
       spr.setTextSize(2);
       spr.drawString(petname, 135 / 2, y);
       y += 20;
     }
-  } else {
-    spr.setTextSize(2);
-    spr.drawString(petname, 135 / 2, y);
-    y += 20;
+    spr.setTextDatum(TL_DATUM);
   }
-  spr.setTextDatum(TL_DATUM);
 
   spr.drawFastHLine(20, y, 135 - 40, COL_DIVIDER);
   y += 6;
 
-  // Status row: ● <state-name>, the dot + text composite centered.
-  // Left-aligning would push "● thinking" (130 px including dot+gap) to
-  // x=148 with the previous 18 px padding — 3 px overflow → wrap.
+  // Status row: ● <state-name>
   {
     const char* sn = personaLabel(persona);
-    int textW = (int)strlen(sn) * 12;   // size 2 = 12 px/char
-    const int dotW = 10;                // 6 (diameter) + 4 (gap)
+    int textW = (int)strlen(sn) * 12;
+    const int dotW = 10;
     int totalW = dotW + textW;
     int leftX = (135 - totalW) / 2;
     if (leftX < 0) leftX = 0;
@@ -144,9 +163,7 @@ void drawNameStatusSessions(const TamaState& tama, uint8_t persona,
   }
   y += 20;
 
-  // Sessions row centered (size 2). "no sessions" = 132 px, just barely
-  // fits the 135 px screen when centered (left margin 1.5 px), but
-  // overflows with any left padding ≥ 4.
+  // Sessions count row
   {
     spr.setTextSize(2);
     spr.setTextColor(COL_TEXT_DIM, COL_BG);
@@ -161,12 +178,12 @@ void drawNameStatusSessions(const TamaState& tama, uint8_t persona,
   }
 }
 
-void drawCaption() {
+void drawCaption(uint8_t sessionCount) {
   spr.setTextSize(1);
   spr.setTextColor(COL_TEXT_DIM, COL_BG);
   spr.setCursor(4, Y_CAPTION_START + 4);
   spr.print("A >");
-  const char* hint = "hold A menu";
+  const char* hint = sessionCount > 1 ? "B switch" : "hold A menu";
   int hw = (int)strlen(hint) * 6;
   spr.setCursor(135 - hw - 4, Y_CAPTION_START + 4);
   spr.print(hint);
@@ -202,18 +219,18 @@ void render(const TamaState& tama, uint8_t persona,
   // Status bar region (y=0..14) — overwrites the top 6 px of the GIF
   // canvas, which is the bottom-aligned sprite's empty top padding.
   spr.fillRect(0, 0, 135, 14, COL_BG);
-  drawStatusBar(batPct, secureLink, charging);
+  drawStatusBar(batPct, secureLink, charging, tama.sessionCount, tama.activeSession);
 
   // Lower info region (y=134..226) — name / divider / status / sessions.
   // Starts at y=134 (GIF bottom edge) so anything that leaked into the
   // 4 px gap above the name row (boot splash residue, prior renderer
   // bleed) gets wiped every frame.
   spr.fillRect(0, 134, 135, 226 - 134, COL_BG);
-  drawNameStatusSessions(tama, persona, owner, petname);
+  drawProjectStatusSessions(tama, persona, owner, petname);
 
   // Caption region (y=226..240)
   spr.fillRect(0, 226, 135, 240 - 226, COL_BG);
-  drawCaption();
+  drawCaption(tama.sessionCount);
 
   (void)Y_STATUS_END;
 }

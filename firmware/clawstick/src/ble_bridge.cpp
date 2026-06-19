@@ -168,8 +168,6 @@ void bleInit(const char* deviceName) {
   security->setAuthenticationMode(ESP_LE_AUTH_NO_BOND);
   security->setCapability(ESP_IO_CAP_NONE);
   security->setKeySize(16);
-  security->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK);
-  security->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK);
 
   adv = BLEDevice::getAdvertising();
   adv->addServiceUUID(NUS_SERVICE_UUID);

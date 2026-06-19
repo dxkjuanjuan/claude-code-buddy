@@ -46,6 +46,7 @@ const char* stateNames[] = {
 };
 
 TamaState    tama;
+TamaState    prevTama;     // previous frame snapshot for transition detection
 PersonaState baseState   = P_SLEEP;
 PersonaState activeState = P_SLEEP;
 uint32_t     oneShotUntil = 0;
@@ -113,6 +114,9 @@ uint8_t settingsSel  = 0;
 
 bool    resetOpen = false;
 uint8_t resetSel  = 0;
+
+bool     projectOpen = false;
+uint8_t  projectSel = 0;
 static uint32_t resetConfirmUntil = 0;
 static uint8_t  resetConfirmIdx = 0xFF;
 static uint32_t powerConfirmUntil = 0;
@@ -285,9 +289,14 @@ PersonaState derive(const TamaState& s) {
   if (_wasEverSecure && !sec) return P_ERROR;
   if (!s.connected)            return P_SLEEP;
 
-  // If the bridge sent a named persona state, use it directly.
-  // This allows the full clawd-on-desk expression set to be driven
-  // from Claude Code hooks via the bridge runtime.
+  // When viewing a specific session, derive persona from that session's
+  // state so switching windows shows the correct expression per project.
+  if (s.sessionCount > 0 && s.activeSession < s.sessionCount) {
+    const char* ss = s.sessions[s.activeSession].state;
+    if (ss && ss[0]) return nameToPersona(ss);
+  }
+
+  // Fallback: top-level personaState from bridge (highest-priority session).
   if (s.personaState[0]) return nameToPersona(s.personaState);
 
   // Fallback: derive from session counters (legacy behavior)
@@ -323,6 +332,102 @@ void drawPasskey() {
   char b[8]; snprintf(b, sizeof(b), "%06lu", (unsigned long)blePasskey());
   spr.setCursor((W - 18 * 6) / 2, 110);
   spr.print(b);
+}
+
+void drawProjectSettings(const TamaState& tama) {
+  const uint16_t PJS_BG = 0x1082;
+  const uint16_t PJS_TEXT = 0xFFFF;
+  const uint16_t PJS_DIM = 0x7BEF;
+  const uint16_t PJS_ACCENT = 0xFCE0;
+  const uint16_t PJS_DIV = 0x3186;
+  const uint16_t PJS_SEL = 0x2945;
+
+  spr.fillSprite(PJS_BG);
+  int y = 6;
+
+  spr.setTextSize(1);
+  if (tama.sessionCount > 0 && tama.activeSession < tama.sessionCount) {
+    const SessionInfo& si = tama.sessions[tama.activeSession];
+    spr.setTextColor(PJS_ACCENT, PJS_BG);
+    char hdr[20];
+    snprintf(hdr, sizeof(hdr), "#%u", (unsigned)(tama.activeSession + 1));
+    spr.setCursor(8, y);
+    spr.print(hdr);
+    spr.setTextColor(PJS_TEXT, PJS_BG);
+    spr.setCursor(30, y);
+    spr.print(si.title);
+    y += 14;
+
+    // Run duration
+    spr.setTextColor(PJS_DIM, PJS_BG);
+    spr.setCursor(8, y);
+    spr.print("run ");
+    if (si.updatedAt > 0 && statsRtcSynced()) {
+      time_t nowT = time(nullptr);
+      uint32_t durSec = nowT > (time_t)si.updatedAt ? (uint32_t)(nowT - (time_t)si.updatedAt) : 0;
+      char durBuf[16];
+      if (durSec >= 3600) snprintf(durBuf, sizeof(durBuf), "%uh%um", durSec/3600, (durSec%3600)/60);
+      else if (durSec >= 60) snprintf(durBuf, sizeof(durBuf), "%um", durSec/60);
+      else snprintf(durBuf, sizeof(durBuf), "%us", durSec);
+      spr.setTextColor(PJS_TEXT, PJS_BG);
+      spr.print(durBuf);
+    } else {
+      spr.setTextColor(PJS_DIM, PJS_BG);
+      spr.print("--");
+    }
+    y += 14;
+
+    // Created time
+    spr.setTextColor(PJS_DIM, PJS_BG);
+    spr.setCursor(8, y);
+    spr.print("created ");
+    if (si.createdAt > 0 && statsRtcSynced()) {
+      time_t nowT = time(nullptr);
+      uint32_t agoSec = nowT > (time_t)si.createdAt ? (uint32_t)(nowT - (time_t)si.createdAt) : 0;
+      char agoBuf[16];
+      if (agoSec >= 86400) snprintf(agoBuf, sizeof(agoBuf), "%ud", agoSec/86400);
+      else if (agoSec >= 3600) snprintf(agoBuf, sizeof(agoBuf), "%uh", agoSec/3600);
+      else if (agoSec >= 60) snprintf(agoBuf, sizeof(agoBuf), "%um", agoSec/60);
+      else snprintf(agoBuf, sizeof(agoBuf), "%us", agoSec);
+      spr.setTextColor(PJS_TEXT, PJS_BG);
+      spr.print(agoBuf);
+      spr.print(" ago");
+    } else {
+      spr.setTextColor(PJS_DIM, PJS_BG);
+      spr.print("--");
+    }
+    y += 14;
+  } else {
+    spr.setTextColor(PJS_DIM, PJS_BG);
+    spr.setCursor(8, y);
+    spr.print("NO SESSION");
+    y += 14;
+  }
+
+  spr.drawFastHLine(8, y, 119, PJS_DIV);
+  y += 6;
+
+  // Mode list (5 modes)
+  const char* modeLabels[] = {"normal", "dangerous", "auto", "plan", "edit-auto"};
+  for (uint8_t i = 0; i < 5; i++) {
+    if (i == projectSel) {
+      spr.fillRect(4, y - 2, 127, 14, PJS_SEL);
+      spr.setTextColor(PJS_TEXT, PJS_SEL);
+      spr.setCursor(8, y);
+      spr.print("> ");
+    } else {
+      spr.setTextColor(PJS_DIM, PJS_BG);
+      spr.setCursor(8, y);
+      spr.print("  ");
+    }
+    spr.print(modeLabels[i]);
+    y += 16;
+  }
+
+  spr.setTextSize(1);
+  spr.setTextColor(PJS_DIM, PJS_BG);
+  spr.setCursor(4, 226);
+  spr.print("A:sel B:toggle holdA:exit");
 }
 
 void setup() {
@@ -429,26 +534,94 @@ void loop() {
   // rewrite (L4) where it can react to the approval *and* see RTC state.
   baseState = derive(tama);
 
+  // Detect session completion: active session transitions from running
+  // state to idle — trigger a 3-second celebrate animation.
+  if (tama.sessionCount > 0 && tama.activeSession < tama.sessionCount) {
+    const char* curSt = tama.sessions[tama.activeSession].state;
+    const char* prevSt = prevTama.sessions[prevTama.activeSession < prevTama.sessionCount
+                              ? prevTama.activeSession : 0].state;
+    bool wasRunning = prevSt && (strcmp(prevSt, "working") == 0 ||
+                                  strcmp(prevSt, "thinking") == 0 ||
+                                  strcmp(prevSt, "juggling") == 0 ||
+                                  strcmp(prevSt, "sweeping") == 0 ||
+                                  strcmp(prevSt, "reading") == 0 ||
+                                  strcmp(prevSt, "building") == 0);
+    bool nowIdle = curSt && strcmp(curSt, "idle") == 0;
+    if (wasRunning && nowIdle && prevTama.sessionCount > 0) {
+      triggerOneShot(P_CELEBRATE, 3000);
+    }
+  }
+  prevTama = tama;
+
   // After waking the screen, hold sleep for 12s so users see the wake-up
   // animation. Urgent states (attention, celebrate, busy) override this.
   if (baseState == P_IDLE && (int32_t)(now - wakeTransitionUntil) < 0) baseState = P_SLEEP;
 
   if ((int32_t)(now - oneShotUntil) >= 0) activeState = baseState;
 
-  // shake → dizzy
+  // Idle 60s -> sleep (connected but no activity)
+  static uint32_t idleSince = 0;
+  if (baseState == P_IDLE) {
+    if (!idleSince) idleSince = now;
+    else if ((now - idleSince) >= 60000 && activeState == P_IDLE) {
+      activeState = P_SLEEP;
+    }
+  } else {
+    idleSince = 0;
+  }
+
+  // Working random animation: after 30-60s in same working state,
+  // trigger a random work variant for 3-5s.
+  static uint32_t workingSince = 0;
+  static uint32_t nextWorkVariantAt = 0;
+  bool isWorkingState = (activeState == P_BUSY || activeState == P_ATTENTION ||
+                         activeState == P_JUGGLING || activeState == P_SWEEPING ||
+                         activeState == P_READING || activeState == P_BUILDING);
+  if (isWorkingState) {
+    if (!workingSince) {
+      workingSince = now;
+      nextWorkVariantAt = now + 30000 + (esp_random() % 30000);
+    }
+    if (now >= nextWorkVariantAt && (int32_t)(now - oneShotUntil) >= 0) {
+      const PersonaState workVariants[] = { P_READING, P_BUILDING, P_DEBUGGER, P_BUBBLE };
+      triggerOneShot(workVariants[esp_random() % 4], 3000 + (esp_random() % 2000));
+      nextWorkVariantAt = now + 30000 + (esp_random() % 30000);
+    }
+  } else {
+    workingSince = 0;
+    nextWorkVariantAt = 0;
+  }
+
+  // Idle random animation: after 20-40s idle, trigger a random
+  // personality animation for 3-5s.
+  static uint32_t nextIdleVariantAt = 0;
+  if (baseState == P_IDLE && activeState == P_IDLE) {
+    if (!nextIdleVariantAt || nextIdleVariantAt < now - 120000) {
+      nextIdleVariantAt = now + 8000 + (esp_random() % 7000);
+    }
+    if (now >= nextIdleVariantAt) {
+      const PersonaState idleVariants[] = { P_BUBBLE, P_READING, P_BUILDING,
+                                        P_DEBUGGER, P_NOTIFICATION, P_ANNOYED };
+      triggerOneShot(idleVariants[esp_random() % 6], 3000 + (esp_random() % 2000));
+      nextIdleVariantAt = now + 8000 + (esp_random() % 7000);
+    }
+  } else {
+    nextIdleVariantAt = 0;
+  }
+
+  // shake -> dizzy + BLE reconnect (always acts as reset)
   if (now - lastShakeCheck > 50) {
     lastShakeCheck = now;
-    if (!menuOpen && !screenOff && checkShake() && (int32_t)(now - oneShotUntil) >= 0) {
+    if (!menuOpen && checkShake()) {
+      bool wasOff = screenOff;
       wake();
-      // Shake feeds the mood penalty (plan §3.3: ≥3 shakes in 5min →
-      // mood base -=2). Critically NOT counted as a button interaction —
-      // fork's wake() shake-interlock bug (it bumped lastInteractMs and
-      // got mood credit for the same event that was supposed to dock it)
-      // is avoided because statsOnShakeDetected() touches only the shake
-      // ring + counter, never lastButtonInteractMs.
-      statsOnShakeDetected();
-      triggerOneShot(P_DIZZY, 2000);
-      Serial.println("shake: dizzy");
+      if (wasOff || (int32_t)(now - oneShotUntil) >= 0) {
+        statsOnShakeDetected();
+        bleWakeAdvertising();
+        idleSince = 0;  // reset idle timer so we stay awake
+        triggerOneShot(P_DIZZY, 2000);
+        Serial.println("shake: dizzy + reconnect");
+      }
     }
   }
 
@@ -560,7 +733,11 @@ void loop() {
       if (resetOpen) { resetOpen = false; }
       else if (settingsOpen) { settingsOpen = false; menuOpen = true; }
       else if (aboutOpen) { aboutOpen = false; menuOpen = true; }
-      else {
+      else if (projectOpen) { projectOpen = false; }
+      else if (ui_router::current() == ui_router::CARD_HOME) {
+        projectOpen = true;
+        projectSel = 0;
+      } else {
         menuOpen = !menuOpen;
         menuSel = 0;
         powerConfirmUntil = 0;
@@ -609,6 +786,9 @@ void loop() {
         beep(1800, 30);
         menuSel = (menuSel + 1) % ui_menu::kItemCount;
         powerConfirmUntil = 0;
+      } else if (projectOpen) {
+        beep(1800, 30);
+        projectSel = (projectSel + 1) % 5;
       } else {
         // Main card: cycle HOME → STATS → LINK → HOME (plan §3.1).
         beep(1800, 30);
@@ -675,14 +855,26 @@ void loop() {
       } else if (menuOpen) {
         beep(2400, 30);
         menuConfirm();
+      } else if (projectOpen) {
+        beep(2400, 30);
+        const char* modeCmds[] = {"normal", "bypassPermissions", "auto", "plan", "acceptEditsOn"};
+        char cmd[80];
+        snprintf(cmd, sizeof(cmd), "{\"cmd\":\"mode\",\"session\":\"%s\",\"mode\":\"%s\"}",
+                 tama.sessionCount > 0 && tama.activeSession < tama.sessionCount ? tama.sessions[tama.activeSession].id : "",
+                 modeCmds[projectSel]);
+        sendCmd(cmd);
       } else if (ui_router::current() == ui_router::CARD_LINK) {
         // LINK card B = manual BLE reconnect (plan §3.4 caption).
         // wakeAdvertising re-opens the short discoverability window
         // so the desktop can reconnect without a full bond cycle.
         beep(2400, 30);
         bleWakeAdvertising();
+      } else if (ui_router::current() == ui_router::CARD_HOME && tama.sessionCount > 1) {
+        // HOME: B switches between sessions
+        tama.activeSession = (tama.activeSession + 1) % tama.sessionCount;
+        beep(1800, 30);
+        characterInvalidate();
       }
-      // else: B short on HOME/STATS — no-op (plan §3.5.1 dispatch table)
     }
   }
 
@@ -736,6 +928,7 @@ void loop() {
   }
   if (!screenOff) {
     if (blePasskey()) drawPasskey();
+    else if (projectOpen) drawProjectSettings(tama);
     else if (showApproval) ui_approval::render(tama, promptArrivedMs, responseSent, choiceSel);
     else if (resetOpen) ui_reset::render(resetSel, resetConfirmIdx, resetConfirmUntil);
     else if (settingsOpen) {

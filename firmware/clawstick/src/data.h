@@ -4,6 +4,14 @@
 #include "ble_bridge.h"
 #include "xfer.h"
 
+struct SessionInfo {
+  char     id[5];          // session id suffix (4 chars + null)
+  char     title[17];      // project name (16 chars + null)
+  char     state[9];       // "idle"/"working"/"thinking" etc (8 + null)
+  uint32_t updatedAt;       // epoch seconds
+  uint32_t createdAt;       // epoch seconds (0 = unknown)
+};
+
 struct TamaState {
   uint8_t  sessionsTotal;
   uint8_t  sessionsRunning;
@@ -19,6 +27,10 @@ struct TamaState {
   char     promptChoices[4][16]; // up to 4 choices, each up to 15 chars
   uint8_t  promptChoiceCount;    // 0 = no choices (legacy allow/deny)
   char     personaState[20]; // named state from bridge: "idle","working","thinking","juggling","sweeping","error","attention","notification","carrying","sleeping"
+  SessionInfo sessions[4];     // per-window info (up to 4)
+  uint8_t  sessionCount;       // actual number of windows (0-4)
+  uint8_t  activeSession;      // currently viewed window (0-based)
+  uint8_t  promptSessionIdx;   // which session the prompt belongs to (0xFF = none)
 };
 
 // ---------------------------------------------------------------------------
@@ -96,6 +108,35 @@ static void _applyJson(const char* line, TamaState* out) {
     strncpy(out->personaState, ps, sizeof(out->personaState)-1);
     out->personaState[sizeof(out->personaState)-1] = 0;
   }
+  // Parse compact per-session array: [[id, title, state, updatedAt, createdAt], ...]
+  JsonArray sArr = doc["s"];
+  if (!sArr.isNull()) {
+    out->sessionCount = 0;
+    for (uint8_t i = 0; i < 4 && i < sArr.size(); i++) {
+      JsonArray row = sArr[i];
+      if (row.isNull() || row.size() < 3) continue;
+      const char* sid = row[0];
+      const char* stitle = row[1];
+      const char* sstate = row[2];
+      if (sid)  { strncpy(out->sessions[i].id, sid, 4); out->sessions[i].id[4]=0; }
+      else out->sessions[i].id[0]=0;
+      if (stitle) {
+        // Strip non-ASCII chars (ESP32 built-in font can't render them)
+        char buf[17]; int j=0;
+        for (const char* p=stitle; *p && j<16; p++) {
+          if ((unsigned char)*p >= 0x20 && (unsigned char)*p < 0x7F) buf[j++]=*p;
+        }
+        buf[j]=0;
+        memcpy(out->sessions[i].title, buf, j+1);
+      }
+      else out->sessions[i].title[0]=0;
+      if (sstate) { strncpy(out->sessions[i].state, sstate, 8); out->sessions[i].state[8]=0; }
+      else out->sessions[i].state[0]=0;
+      out->sessions[i].updatedAt = row.size() > 3 ? (uint32_t)row[3].as<uint32_t>() : 0;
+      out->sessions[i].createdAt = row.size() > 4 ? (uint32_t)row[4].as<uint32_t>() : 0;
+      out->sessionCount = i + 1;
+    }
+  }
   // The snapshot protocol may still include msg / entries / tokens_today.
   // New Clawstick UI no longer renders transcript/info pages or token-fed
   // stats, so those legacy fork fields are intentionally ignored here.
@@ -123,6 +164,7 @@ static void _applyJson(const char* line, TamaState* out) {
         }
       }
     }
+    out->promptSessionIdx = pr["si"] | 0xFF;
     _promptReceivedMs = millis();
   } else if (!_suppressPromptClear) {
     // No prompt field on this snapshot (or transport lost the gate).
@@ -181,6 +223,8 @@ inline void dataPoll(TamaState* out) {
     out->recentlyCompleted=false;
     out->personaState[0]=0; // clear on disconnect so fresh connect starts idle
     out->promptChoiceCount = 0;
+    out->sessionCount = 0;
+    out->promptSessionIdx = 0xFF;
     _promptReceivedMs = 0;
   }
 }

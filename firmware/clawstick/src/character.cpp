@@ -47,15 +47,13 @@ static bool    stateHasGif[N_STATES];
 // would be interpreted as P_BUSY and reopen "working".
 static uint8_t curState = 0xFF;
 
-// Layout: GIF centered horizontally; y=14 places the GIF canvas flush
-// against the status bar. With top-aligned source GIFs (--align top in
-// tools/preprocess-gif.py) the character sprite sits at y=14+4=18 in
-// screen coords, 4 px below the status bar regardless of which state
-// is active.
-static void gifPlace() {
+// Layout: GIF centered horizontally. Y offset depends on state:
+// idle sprite is top-aligned and appears too high, so shift it down;
+// all other states use the standard position flush against the status bar.
+static void gifPlace(uint8_t assetState) {
   int gw = gif_player::canvasWidth();
   int x = (spr.width() - gw) / 2;
-  int y = 14;
+  int y = (assetState == 0) ? 22 : 14;  // 0=idle: shift down 8px
   gif_player::setOrigin(x, y);
 }
 
@@ -210,7 +208,7 @@ static void openAsset(uint8_t s) {
   char full[80];
   snprintf(full, sizeof(full), "%s/%s", basePath, stateFiles[s]);
   if (gif_player::open(full, pal.bg)) {
-    gifPlace();
+    gifPlace(s);
     // Only clear the GIF region (y=14..134). home.cpp owns the status
     // bar (y=0..14) and the lower info area (y=138..240); fillSprite
     // here would erase them on every state change and cause flicker.
